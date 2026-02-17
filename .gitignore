@@ -1,0 +1,6 @@
+# Build results
+[Dd]ebug/\n[Rr]elease/\n[Bb]in/\n[Ss]rc/\n[Ll]og/\n[Cc]ache/\n[Oo]ut/\n[Oo]bj/\n[Tt]emp/\n*.zip\n*.exe\n*.dll\n*.pdb\n*.mdb\n*.ilk\n*.log\n\n# Visual Studio cache
+.vs/\n*.suo\n*.user\n*.userprefs\n\n# NuGet Packages
+*.nupkg\n*.snupkg\n\n# OS-specific files
+.DS_Store\nThumbs.db\n*.cab\n*.msi\n*.msm\n*.msp\n\n# Project-specific temporary files
+*.tmp\n*.temp\n*.tlog/
