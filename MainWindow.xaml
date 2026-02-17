@@ -1,57 +1,12 @@
 <Window x:Class="SolidEdgeConfigurator.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Solid Edge Configurator" Height="600" Width="900"
-        Background="#F5F5F5">
+        Title="Main Window" Height="350" Width="525">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="300"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-
-        <!-- Left Panel: Configuration Controls -->
-        <StackPanel Grid.Column="0" Margin="15" Background="White" Orientation="Vertical">
-            <TextBlock Text="Configurator" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
-
-            <!-- Load Assembly Section -->
-            <GroupBox Header="1. Load Template" Margin="0,0,0,15" Padding="10">
-                <StackPanel>
-                    <TextBlock Text="Template File:" Margin="0,0,0,5"/>
-                    <TextBox x:Name="AssemblyPathTextBox" Height="30" Padding="5" IsReadOnly="True" Background="#F0F0F0"/>
-                    <Button Content="Browse Template..." Click="BrowseAssembliesButton_Click" Height="35" Margin="0,10,0,0" Background="#0066CC" Foreground="White" FontWeight="Bold"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- Configuration Section -->
-            <GroupBox Header="2. Configure Components" Margin="0,0,0,15" Padding="10">
-                <StackPanel>
-                    <TextBlock Text="Available Components:" Margin="0,0,0,5"/>
-                    <ListBox x:Name="ComponentListBox" Height="200" Margin="0,0,0,10" Background="White" BorderBrush="#CCCCCC" BorderThickness="1" SelectionChanged="ComponentSelectionChanged"/>
-                    
-                    <TextBlock Text="Selected Component:" Margin="0,10,0,5"/>
-                    <TextBox x:Name="SelectedComponentText" Height="25" Padding="5" IsReadOnly="True" Background="#F0F0F0"/>
-                    
-                    <CheckBox x:Name="VisibilityCheckBox" Content="Visible" Margin="0,10,0,0"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- Save Configuration Section -->
-            <GroupBox Header="3. Generate Assembly" Margin="0,0,0,15" Padding="10">
-                <StackPanel>
-                    <TextBlock Text="Output File:" Margin="0,0,0,5"/>
-                    <TextBox x:Name="OutputPathTextBox" Height="30" Padding="5" IsReadOnly="False" Background="White"/>
-                    <Button Content="Generate Assembly" Click="GenerateAssembliesButton_Click" Height="40" Margin="0,10,0,0" Background="#00AA00" Foreground="White" FontWeight="Bold" FontSize="12"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- Status -->
-            <TextBlock x:Name="StatusText" Text="Ready" Margin="0,10,0,0" Foreground="#666666" TextWrapping="Wrap" FontSize="11"/>
-        </StackPanel>
-
-        <!-- Right Panel: Log/Info -->
-        <StackPanel Grid.Column="1" Margin="15" Orientation="Vertical">
-            <TextBlock Text="Execution Log" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-            <ListBox x:Name="LogListBox" Background="White" BorderBrush="#CCCCCC" BorderThickness="1"/>
-        </StackPanel>
+        <Button Content="Open" Width="100" Height="30" Margin="10" VerticalAlignment="Top" />
+        <Button Content="Add" Width="100" Height="30" Margin="10,50,0,0" VerticalAlignment="Top" />
+        <Button Content="Remove" Width="100" Height="30" Margin="10,100,0,0" VerticalAlignment="Top" />
+        <Button Content="Close" Width="100" Height="30" Margin="10,150,0,0" VerticalAlignment="Top" />
+        <!-- Removed buttons related to Parts Management -->
     </Grid>
 </Window>
