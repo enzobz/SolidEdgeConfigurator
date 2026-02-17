@@ -11,7 +11,7 @@ namespace SolidEdgeConfigurator.Services
     /// <summary>
     /// Service for interacting with Solid Edge assemblies
     /// </summary>
-    public class SolidEdgeService
+    public class SolidEdgeService : IDisposable
     {
         /// <summary>
         /// Reference to the Solid Edge Application COM object
@@ -29,6 +29,31 @@ namespace SolidEdgeConfigurator.Services
         public SolidEdgeService()
         {
             _components = new List<ComponentConfig>();
+            InitializeSolidEdge();
+        }
+
+        /// <summary>
+        /// Initialize Solid Edge application (hidden by default)
+        /// </summary>
+        private void InitializeSolidEdge()
+        {
+            try
+            {
+                var seType = Type.GetTypeFromProgID("SolidEdge.Application", throwOnError: false);
+                if (seType == null)
+                {
+                    throw new Exception("Solid Edge is not installed or COM registration failed.");
+                }
+
+                _application = Activator.CreateInstance(seType);
+                _application.Visible = false;  // Start hidden
+                Log.Information("✓ Solid Edge initialized (hidden)");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "✗ Failed to initialize Solid Edge: {Message}", ex.Message);
+                throw;
+            }
         }
 
         /// <summary>
@@ -38,28 +63,13 @@ namespace SolidEdgeConfigurator.Services
         {
             try
             {
-                // Try to get running instance
-                try
+                if (_application != null)
                 {
-                    _application = Marshal.GetActiveObject("SolidEdge.Application");
-                    Log.Information("Connected to running Solid Edge instance");
+                    Log.Information("Connected to Solid Edge instance");
+                    return true;
                 }
-                catch (COMException comEx)
-                {
-                    // No running instance found, create new one
-                    Log.Debug(comEx, "No running Solid Edge instance found, creating new one");
-                    Type type = Type.GetTypeFromProgID("SolidEdge.Application");
-                    if (type != null)
-                    {
-                        _application = Activator.CreateInstance(type);
-                        _application.Visible = true;
-                        Log.Information("Started new Solid Edge instance");
-                    }
-                    else
-                    {
-                        throw new Exception("Solid Edge is not installed or not registered");
-                    }
-                }
+
+                InitializeSolidEdge();
                 return true;
             }
             catch (Exception ex)
@@ -96,7 +106,6 @@ namespace SolidEdgeConfigurator.Services
                     }
                     catch (Exception closeEx)
                     {
-                        // Document may already be closed or in an invalid state
                         Log.Debug(closeEx, "Exception while closing previous document");
                     }
                 }
@@ -146,21 +155,17 @@ namespace SolidEdgeConfigurator.Services
                     try
                     {
                         dynamic occurrence = occurrences.Item(i);
-                        string name = occurrence.Name;
-                        bool visible = !occurrence.Suppressed;
-
+                        string componentName = occurrence.Name;
                         _components.Add(new ComponentConfig
                         {
-                            ComponentName = name,
-                            IsVisible = visible,
-                            Description = $"Component {i}"
+                            ComponentName = componentName,
+                            IsVisible = true
                         });
-
-                        Log.Debug("Component loaded: {Name}, Visible: {Visible}", name, visible);
+                        Log.Debug("Found component: {ComponentName}", componentName);
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning(ex, "Failed to load component {Index}", i);
+                        Log.Warning(ex, "Error processing component {Index}", i);
                     }
                 }
             }
@@ -171,158 +176,283 @@ namespace SolidEdgeConfigurator.Services
         }
 
         /// <summary>
-        /// Get all components from loaded assembly
+        /// Get list of available components
         /// </summary>
-        public List<ComponentConfig> GetComponents()
+        public List<string> GetComponentList()
         {
-            return new List<ComponentConfig>(_components);
+            return _components.Select(c => c.ComponentName).ToList();
         }
 
         /// <summary>
-        /// Toggle visibility of a component
+        /// Apply configuration to assembly components
         /// </summary>
-        public bool ToggleComponentVisibility(string componentName, bool isVisible)
+        public void ApplyConfiguration(ConfigurationSettings config)
         {
             try
             {
                 if (_assemblyDocument == null)
                 {
-                    Log.Warning("No assembly document loaded");
-                    return false;
+                    throw new InvalidOperationException("No assembly is currently open");
                 }
 
-                dynamic occurrences = _assemblyDocument.Occurrences;
-                int count = occurrences.Count;
+                Log.Information("Applying configuration with {Count} component settings...", config.ComponentConfigs.Count);
 
-                // Note: COM collections are 1-indexed
-                for (int i = 1; i <= count; i++)
+                foreach (var componentConfig in config.ComponentConfigs)
+                {
+                    SetComponentVisibility(componentConfig);
+                }
+
+                Log.Information("✓ Configuration applied successfully");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "✗ Failed to apply configuration: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Set visibility of a component
+        /// </summary>
+        private void SetComponentVisibility(ComponentConfig componentConfig)
+        {
+            try
+            {
+                var occurrences = _assemblyDocument.Occurrences;
+
+                for (int i = 1; i <= occurrences.Count; i++)
                 {
                     dynamic occurrence = occurrences.Item(i);
-                    if (occurrence.Name == componentName)
+                    
+                    if (occurrence.Name.Equals(componentConfig.ComponentName, StringComparison.OrdinalIgnoreCase))
                     {
-                        occurrence.Suppressed = !isVisible;
-                        
-                        // Update local cache
-                        var component = _components.FirstOrDefault(c => c.ComponentName == componentName);
-                        if (component != null)
-                        {
-                            component.IsVisible = isVisible;
-                        }
-
-                        Log.Information("Component {Name} visibility set to {Visible}", componentName, isVisible);
-                        return true;
+                        occurrence.Visible = componentConfig.IsVisible;
+                        string state = componentConfig.IsVisible ? "VISIBLE" : "HIDDEN";
+                        Log.Information("✓ Component '{ComponentName}' set to {State}", componentConfig.ComponentName, state);
+                        break;
                     }
                 }
-
-                Log.Warning("Component not found: {Name}", componentName);
-                return false;
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Failed to toggle visibility for component: {Name}", componentName);
-                return false;
+                Log.Error(ex, "Error setting visibility for component: {Message}", ex.Message);
             }
         }
 
         /// <summary>
-        /// Generate a new assembly file with current configuration
+        /// Save assembly with new configuration
         /// </summary>
-        public bool GenerateAssembly(string outputPath, ConfigurationSettings settings)
+        public void SaveAssemblyAs(string outputPath)
         {
             try
             {
                 if (_assemblyDocument == null)
                 {
-                    Log.Warning("No assembly document loaded");
-                    return false;
+                    throw new InvalidOperationException("No assembly is currently open");
                 }
 
-                if (string.IsNullOrWhiteSpace(outputPath))
-                {
-                    Log.Error("Output path is empty");
-                    return false;
-                }
-
-                // Ensure output directory exists
-                string directory = Path.GetDirectoryName(outputPath);
-                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-
-                // Apply component configurations if provided
-                if (settings?.ComponentConfigurations != null && settings.ComponentConfigurations.Any())
-                {
-                    foreach (var config in settings.ComponentConfigurations)
-                    {
-                        if (!string.IsNullOrEmpty(config.ComponentName))
-                        {
-                            ToggleComponentVisibility(config.ComponentName, config.IsVisible);
-                        }
-                    }
-                }
-
-                // Save assembly to new location
                 _assemblyDocument.SaveAs(outputPath);
-                
-                Log.Information("Assembly generated successfully: {OutputPath}", outputPath);
-                return true;
+                Log.Information("✓ Assembly saved to: {OutputPath}", outputPath);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Failed to generate assembly: {OutputPath}", outputPath);
+                Log.Error(ex, "✗ Failed to save assembly: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Open assembly file
+        /// </summary>
+        public void OpenAssembly(string asmFilePath)
+        {
+            try
+            {
+                if (!File.Exists(asmFilePath))
+                {
+                    throw new FileNotFoundException($"Assembly file not found: {asmFilePath}");
+                }
+
+                LoadAssembly(asmFilePath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to open assembly");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Toggle Solid Edge visibility
+        /// </summary>
+        public bool ToggleSolidEdgeVisibility()
+        {
+            try
+            {
+                if (_application == null)
+                {
+                    return false;
+                }
+
+                _application.Visible = !_application.Visible;
+                string state = _application.Visible ? "SHOWN" : "HIDDEN";
+                Log.Information("✓ Solid Edge {State}", state);
+                return _application.Visible;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error toggling Solid Edge: {Message}", ex.Message);
                 return false;
             }
         }
 
         /// <summary>
-        /// Close current assembly and cleanup
+        /// Check if Solid Edge window is visible
         /// </summary>
-        public void Close()
+        public bool IsSolidEdgeVisible()
+        {
+            try
+            {
+                return _application != null && _application.Visible;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Show Solid Edge window
+        /// </summary>
+        public void ShowSolidEdge()
+        {
+            try
+            {
+                if (_application != null)
+                {
+                    _application.Visible = true;
+                    Log.Information("✓ Solid Edge shown");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error showing Solid Edge: {Message}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Hide Solid Edge window
+        /// </summary>
+        public void HideSolidEdge()
+        {
+            try
+            {
+                if (_application != null)
+                {
+                    _application.Visible = false;
+                    Log.Information("✓ Solid Edge hidden");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error hiding Solid Edge: {Message}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Close assembly document
+        /// </summary>
+        public void CloseAssembly(bool save = false)
         {
             try
             {
                 if (_assemblyDocument != null)
                 {
-                    _assemblyDocument.Close(false);
+                    _assemblyDocument.Close(!save);
                     _assemblyDocument = null;
+                    Log.Information("✓ Assembly closed");
                 }
-
-                _components.Clear();
-                _currentAssemblyPath = null;
-
-                Log.Information("Assembly closed");
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error closing assembly");
+                Log.Error(ex, "Error closing assembly: {Message}", ex.Message);
             }
         }
 
         /// <summary>
-        /// Get current assembly path
+        /// Dispose and cleanup
         /// </summary>
-        public string GetCurrentAssemblyPath()
-        {
-            return _currentAssemblyPath;
-        }
-
-        /// <summary>
-        /// Check if Solid Edge is available
-        /// </summary>
-        public bool IsSolidEdgeAvailable()
+        public void Dispose()
         {
             try
             {
-                Type type = Type.GetTypeFromProgID("SolidEdge.Application");
-                return type != null;
+                CloseAssembly(save: false);
+                
+                if (_application != null)
+                {
+                    _application.Quit();
+                    Marshal.ReleaseComObject(_application);
+                    _application = null;
+                }
+                
+                Log.Information("✓ Solid Edge service disposed");
             }
             catch (Exception ex)
             {
-                // COM registration or type resolution may fail if Solid Edge is not installed
-                Log.Debug(ex, "Solid Edge availability check failed");
-                return false;
+                Log.Error(ex, "Error during disposal: {Message}", ex.Message);
             }
+
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Get all components with their details (for parts import)
+        /// </summary>
+        public List<ComponentInfo> GetComponentDetails()
+        {
+            var components = new List<ComponentInfo>();
+
+            try
+            {
+                if (_assemblyDocument == null)
+                {
+                    Log.Warning("No assembly document loaded");
+                    return components;
+                }
+
+                dynamic occurrences = _assemblyDocument.Occurrences;
+
+                for (int i = 1; i <= occurrences.Count; i++)
+                {
+                    try
+                    {
+                        dynamic occurrence = occurrences.Item(i);
+                        
+                        var componentInfo = new ComponentInfo
+                        {
+                            ComponentName = occurrence.Name,
+                            PartNumber = occurrence.Name,  // Use component name as part number
+                            Description = occurrence.Name,
+                            IsVisible = true
+                        };
+
+                        components.Add(componentInfo);
+                        Log.Information("Component details: {ComponentName}", occurrence.Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Error processing component {Index}", i);
+                    }
+                }
+
+                Log.Information("Retrieved details for {Count} components", components.Count);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error getting component details: {Message}", ex.Message);
+            }
+
+            return components;
         }
     }
 }

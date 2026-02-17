@@ -1,353 +1,277 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using SolidEdgeConfigurator.Models;
 using SolidEdgeConfigurator.Services;
-using Serilog;
 
 namespace SolidEdgeConfigurator
 {
     public partial class MainWindow : Window
     {
-        private const int MAX_LOG_ENTRIES = 1000;
-        
-        private SolidEdgeService _solidEdgeService;
-        private List<ComponentConfig> _currentComponents;
-        private ComponentConfig _selectedComponent;
-        private bool _isUpdatingVisibility;
+        private SolidEdgeService _seService;
+        private List<string> _availableComponents;
+        private Dictionary<string, ComponentConfig> _componentSettings;
 
         public MainWindow()
         {
-            InitializeComponent();
-            InitializeService();
-            
-            // Register visibility checkbox handler once
-            VisibilityCheckBox.Checked += VisibilityCheckBox_Changed;
-            VisibilityCheckBox.Unchecked += VisibilityCheckBox_Changed;
-            
-            Log("Application started");
-        }
-
-        /// <summary>
-        /// Initialize the SolidEdge service
-        /// </summary>
-        private void InitializeService()
-        {
             try
             {
-                _solidEdgeService = new SolidEdgeService();
-                _currentComponents = new List<ComponentConfig>();
+                InitializeComponent();
+                _availableComponents = new List<string>();
+                _componentSettings = new Dictionary<string, ComponentConfig>();
 
-                // Check if Solid Edge is available
-                if (!_solidEdgeService.IsSolidEdgeAvailable())
+                StatusText.Text = "Initializing Solid Edge...";
+
+                try
                 {
-                    Log("WARNING: Solid Edge is not installed or not detected on this system");
-                    StatusText.Text = "Solid Edge not detected";
+                    _seService = new SolidEdgeService();
+                    StatusText.Text = "✓ Ready";
+                    LogMessage("Solid Edge initialized successfully", "Success");
                 }
-                else
+                catch (Exception ex)
                 {
-                    StatusText.Text = "Ready";
+                    StatusText.Text = $"⚠ Solid Edge not available: {ex.Message}";
+                    _seService = null;
+                    LogMessage($"Solid Edge initialization warning: {ex.Message}", "Warning");
                 }
             }
             catch (Exception ex)
             {
-                Log($"ERROR: Failed to initialize service: {ex.Message}");
-                StatusText.Text = "Initialization error";
+                MessageBox.Show($"Failed to initialize window: {ex.Message}\n\nStack: {ex.StackTrace}", 
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
             }
         }
 
-        /// <summary>
-        /// Event handler for browsing assemblies
-        /// </summary>
         private void BrowseAssembliesButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                OpenFileDialog openFileDialog = new OpenFileDialog
+                if (_seService == null)
                 {
-                    Filter = "Solid Edge Assembly Files (*.asm)|*.asm|All Files (*.*)|*.*",
-                    Title = "Select Solid Edge Assembly Template"
+                    MessageBox.Show("Solid Edge service is not available.", "Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                var openFileDialog = new OpenFileDialog
+                {
+                    Filter = "Solid Edge Assembly (*.asm)|*.asm|All Files (*.*)|*.*",
+                    Title = "Select Template Assembly"
                 };
 
                 if (openFileDialog.ShowDialog() == true)
                 {
-                    string filePath = openFileDialog.FileName;
-                    Log($"Selected template: {filePath}");
-                    LoadAssembly(filePath);
+                    AssemblyPathTextBox.Text = openFileDialog.FileName;
+                    _seService.OpenAssembly(openFileDialog.FileName);
+                    _availableComponents = _seService.GetComponentList();
+                    UpdateComponentList();
+                    StatusText.Text = $"Loaded: {System.IO.Path.GetFileName(openFileDialog.FileName)}";
+                    LogMessage($"Assembly loaded: {openFileDialog.FileName}", "Success");
                 }
             }
             catch (Exception ex)
             {
-                Log($"ERROR: Failed to browse for assembly: {ex.Message}");
-                MessageBox.Show($"Error browsing for file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                LogMessage($"Error loading assembly: {ex.Message}", "Error");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        /// <summary>
-        /// Load assembly and populate component list
-        /// </summary>
-        private void LoadAssembly(string filePath)
+        private void BrowseOutput_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                StatusText.Text = "Loading assembly...";
-                Log($"Loading assembly: {filePath}");
-
-                // Load the assembly
-                bool success = _solidEdgeService.LoadAssembly(filePath);
-
-                if (success)
+                var saveFileDialog = new SaveFileDialog
                 {
-                    // Update UI
-                    AssemblyPathTextBox.Text = filePath;
+                    Filter = "Solid Edge Assembly (*.asm)|*.asm|All Files (*.*)|*.*",
+                    Title = "Save Generated Assembly As",
+                    DefaultExt = ".asm"
+                };
 
-                    // Get components and populate list
-                    _currentComponents = _solidEdgeService.GetComponents();
-                    PopulateComponentList();
-
-                    Log($"Assembly loaded successfully. Found {_currentComponents.Count} components");
-                    StatusText.Text = $"Loaded {_currentComponents.Count} components";
+                // Set default filename if available
+                if (!string.IsNullOrEmpty(AssemblyPathTextBox.Text))
+                {
+                    var originalFilename = System.IO.Path.GetFileNameWithoutExtension(AssemblyPathTextBox.Text);
+                    saveFileDialog.FileName = originalFilename + "_configured.asm";
                 }
-                else
+
+                if (saveFileDialog.ShowDialog() == true)
                 {
-                    Log("ERROR: Failed to load assembly");
-                    StatusText.Text = "Failed to load assembly";
-                    MessageBox.Show("Failed to load assembly. Make sure Solid Edge is installed and the file is a valid assembly.", 
-                        "Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    OutputPathTextBox.Text = saveFileDialog.FileName;
+                    LogMessage($"Output path set: {saveFileDialog.FileName}", "Info");
+                    StatusText.Text = "Output path configured";
                 }
             }
             catch (Exception ex)
             {
-                Log($"ERROR: Exception loading assembly: {ex.Message}");
-                StatusText.Text = "Error loading assembly";
-                MessageBox.Show($"Error loading assembly: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                LogMessage($"Error browsing output: {ex.Message}", "Error");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        /// <summary>
-        /// Populate the component list box
-        /// </summary>
-        private void PopulateComponentList()
+        private void UpdateComponentList()
         {
             ComponentListBox.Items.Clear();
-
-            foreach (var component in _currentComponents)
+            foreach (var component in _availableComponents)
             {
-                ComponentListBox.Items.Add(component.ComponentName);
+                ComponentListBox.Items.Add(component);
+                if (!_componentSettings.ContainsKey(component))
+                {
+                    _componentSettings[component] = new ComponentConfig
+                    {
+                        ComponentName = component,
+                        IsVisible = true
+                    };
+                }
             }
-
-            Log($"Component list populated with {_currentComponents.Count} items");
+            LogMessage($"Found {_availableComponents.Count} components", "Info");
         }
 
-        /// <summary>
-        /// Event handler for selecting components
-        /// </summary>
         private void ComponentSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            try
+            if (ComponentListBox.SelectedItem is string selectedComponent)
             {
-                if (ComponentListBox.SelectedItem == null)
+                SelectedComponentText.Text = selectedComponent;
+                if (_componentSettings.ContainsKey(selectedComponent))
                 {
-                    SelectedComponentText.Text = "";
-                    VisibilityCheckBox.IsChecked = false;
-                    VisibilityCheckBox.IsEnabled = false;
-                    _selectedComponent = null;
-                    return;
+                    VisibilityCheckBox.IsChecked = _componentSettings[selectedComponent].IsVisible;
                 }
-
-                string selectedName = ComponentListBox.SelectedItem.ToString();
-                _selectedComponent = _currentComponents.FirstOrDefault(c => c.ComponentName == selectedName);
-
-                if (_selectedComponent != null)
-                {
-                    SelectedComponentText.Text = _selectedComponent.ComponentName;
-                    
-                    // Update checkbox without triggering event
-                    _isUpdatingVisibility = true;
-                    VisibilityCheckBox.IsChecked = _selectedComponent.IsVisible;
-                    _isUpdatingVisibility = false;
-                    
-                    VisibilityCheckBox.IsEnabled = true;
-
-                    Log($"Component selected: {_selectedComponent.ComponentName}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"ERROR: Failed to handle component selection: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Event handler for visibility checkbox changes
-        /// </summary>
         private void VisibilityCheckBox_Changed(object sender, RoutedEventArgs e)
         {
-            try
+            if (ComponentListBox.SelectedItem is string selectedComponent && VisibilityCheckBox.IsChecked.HasValue)
             {
-                // Ignore if this is a programmatic update
-                if (_isUpdatingVisibility)
-                    return;
-
-                if (_selectedComponent == null)
-                    return;
-
-                bool isVisible = VisibilityCheckBox.IsChecked == true;
-                
-                // Update component visibility
-                bool success = _solidEdgeService.ToggleComponentVisibility(_selectedComponent.ComponentName, isVisible);
-
-                if (success)
-                {
-                    _selectedComponent.IsVisible = isVisible;
-                    Log($"Component {_selectedComponent.ComponentName} visibility set to {isVisible}");
-                    StatusText.Text = $"Component visibility updated";
-                }
-                else
-                {
-                    Log($"ERROR: Failed to update component visibility");
-                    // Revert checkbox
-                    _isUpdatingVisibility = true;
-                    VisibilityCheckBox.IsChecked = !isVisible;
-                    _isUpdatingVisibility = false;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"ERROR: Exception toggling visibility: {ex.Message}");
+                _componentSettings[selectedComponent].IsVisible = VisibilityCheckBox.IsChecked.Value;
+                string visibility = VisibilityCheckBox.IsChecked.Value ? "VISIBLE" : "HIDDEN";
+                LogMessage($"Component '{selectedComponent}' set to {visibility}", "Info");
             }
         }
 
-        /// <summary>
-        /// Event handler for generating assemblies
-        /// </summary>
         private void GenerateAssembliesButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // Validate that an assembly is loaded
-                if (string.IsNullOrWhiteSpace(AssemblyPathTextBox.Text))
+                if (_seService == null)
                 {
-                    MessageBox.Show("Please load an assembly template first.", "No Template", 
+                    MessageBox.Show("Solid Edge service is not available.", "Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(AssemblyPathTextBox.Text))
+                {
+                    MessageBox.Show("Please load a template assembly first.", "Missing Input", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                // Get output path
-                string outputPath = OutputPathTextBox.Text.Trim();
-                
-                if (string.IsNullOrWhiteSpace(outputPath))
+                if (string.IsNullOrEmpty(OutputPathTextBox.Text))
                 {
-                    // Suggest default output path
-                    string templatePath = AssemblyPathTextBox.Text;
-                    string directory = System.IO.Path.GetDirectoryName(templatePath);
-                    string filename = System.IO.Path.GetFileNameWithoutExtension(templatePath);
-                    outputPath = System.IO.Path.Combine(directory, $"{filename}_configured.asm");
-                    OutputPathTextBox.Text = outputPath;
+                    MessageBox.Show("Please specify an output file path.", "Missing Input", 
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
                 }
 
-                Log($"Generating assembly to: {outputPath}");
                 StatusText.Text = "Generating assembly...";
+                LogMessage("Starting assembly generation...", "Info");
 
-                // Create configuration settings
-                var settings = new ConfigurationSettings
+                var config = new ConfigurationSettings
                 {
-                    ConfigurationName = "Generated Configuration",
                     TemplatePath = AssemblyPathTextBox.Text,
-                    OutputPath = outputPath,
-                    ComponentConfigurations = _currentComponents.Select(c => new ComponentConfiguration
-                    {
-                        ComponentName = c.ComponentName,
-                        IsVisible = c.IsVisible,
-                        ConfigurationOption = c.ConfigurationName
-                    }).ToList()
+                    OutputPath = OutputPathTextBox.Text,
+                    ConfigurationName = System.IO.Path.GetFileNameWithoutExtension(OutputPathTextBox.Text)
                 };
 
-                // Generate the assembly
-                bool success = _solidEdgeService.GenerateAssembly(outputPath, settings);
+                foreach (var componentSetting in _componentSettings.Values)
+                {
+                    config.ComponentConfigs.Add(componentSetting);
+                }
 
-                if (success)
-                {
-                    Log($"Assembly generated successfully: {outputPath}");
-                    StatusText.Text = "Assembly generated successfully";
-                    MessageBox.Show($"Assembly generated successfully!\n\nOutput: {outputPath}", 
-                        "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else
-                {
-                    Log("ERROR: Failed to generate assembly");
-                    StatusText.Text = "Failed to generate assembly";
-                    MessageBox.Show("Failed to generate assembly. Check the log for details.", 
-                        "Generation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                _seService.ApplyConfiguration(config);
+                LogMessage("Configuration applied to Solid Edge", "Success");
+
+                _seService.SaveAssemblyAs(config.OutputPath);
+                LogMessage($"Assembly saved: {config.OutputPath}", "Success");
+
+                StatusText.Text = "✓ Assembly generated successfully!";
+                MessageBox.Show($"Assembly generated successfully!\n\nLocation:\n{config.OutputPath}", 
+                    "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                Log($"ERROR: Exception generating assembly: {ex.Message}");
+                LogMessage($"Error generating assembly: {ex.Message}", "Error");
                 StatusText.Text = "Error generating assembly";
-                MessageBox.Show($"Error generating assembly: {ex.Message}", "Error", 
+                MessageBox.Show($"Error: {ex.Message}", "Generation Failed", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        /// <summary>
-        /// Logging functionality - writes to UI log list
-        /// </summary>
-        private void Log(string message)
+        private void LogMessage(string message, string level)
         {
-            try
-            {
-                string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-                string logEntry = $"[{timestamp}] {message}";
-                
-                // Add to UI log
-                Dispatcher.Invoke(() =>
-                {
-                    LogListBox.Items.Add(logEntry);
-                    
-                    // Auto-scroll to bottom
-                    if (LogListBox.Items.Count > 0)
-                    {
-                        LogListBox.ScrollIntoView(LogListBox.Items[LogListBox.Items.Count - 1]);
-                    }
+            string timestamp = DateTime.Now.ToString("HH:mm:ss");
+            string logEntry = $"[{timestamp}] [{level}] {message}";
+            LogListBox.Items.Insert(0, logEntry);
 
-                    // Limit log entries to prevent memory issues
-                    if (LogListBox.Items.Count > MAX_LOG_ENTRIES)
-                    {
-                        LogListBox.Items.RemoveAt(0);
-                    }
-                });
-
-                // Also log to console/Serilog
-                Console.WriteLine(logEntry);
-            }
-            catch (Exception ex)
+            // Keep log size manageable
+            while (LogListBox.Items.Count > 100)
             {
-                // Fallback to console if UI logging fails
-                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {message}");
-                Console.WriteLine($"Logging error: {ex.Message}");
+                LogListBox.Items.RemoveAt(LogListBox.Items.Count - 1);
             }
         }
 
-        /// <summary>
-        /// Cleanup on window closing
-        /// </summary>
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            _seService?.Dispose();
+        }
+
+        private void OpenPartsManagement_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                Log("Application closing");
-                _solidEdgeService?.Close();
+                var partsWindow = new PartsManagementWindow(_availableComponents, _seService);
+                partsWindow.ShowDialog();
+                LogMessage("Parts Management window opened", "Info");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error during cleanup: {ex.Message}");
+                LogMessage($"Error opening Parts Management: {ex.Message}", "Error");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
 
-            base.OnClosing(e);
+        private void ToggleSolidEdge_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_seService == null)
+                {
+                    MessageBox.Show("Solid Edge service is not available.", "Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                _seService.ToggleSolidEdgeVisibility();
+                UpdateToggleButtonText();
+                LogMessage($"Solid Edge {(_seService.IsSolidEdgeVisible() ? "shown" : "hidden")}", "Info");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Error toggling Solid Edge: {ex.Message}", "Error");
+            }
+        }
+
+        private void UpdateToggleButtonText()
+        {
+            if (_seService != null)
+            {
+                ToggleSolidEdgeButton.Content = _seService.IsSolidEdgeVisible() 
+                    ? "Hide Solid Edge" 
+                    : "Show Solid Edge";
+            }
         }
     }
 }

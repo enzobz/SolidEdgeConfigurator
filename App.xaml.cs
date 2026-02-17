@@ -1,27 +1,14 @@
 using System.Windows;
-using Serilog;
 
 namespace SolidEdgeConfigurator
 {
     public partial class App : Application
     {
+        // Override StartupUri - we'll handle window creation manually
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-
-            // Configure Serilog once at application startup
-            Log.Logger = new LoggerConfiguration()
-                .WriteTo.Console()
-                .CreateLogger();
-
-            Log.Information("SolidEdgeConfigurator application started");
-        }
-
-        protected override void OnExit(ExitEventArgs e)
-        {
-            Log.Information("SolidEdgeConfigurator application exiting");
-            Log.CloseAndFlush();
-            base.OnExit(e);
+            // Don't auto-create main window - Program.cs will do it
         }
     }
 }

@@ -1,21 +1,76 @@
-<Window x:Class="SolidEdgeConfigurator.PartsManagementWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Window x:Class="SolidEdgeConfigurator.PartsManagementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Parts Management" Height="700" Width="950"
+        Background="#F5F5F5"
+        Closing="Window_Closing">
     <Grid>
-        <DataGrid x:Name="PartsDataGrid" AutoGenerateColumns="False">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Part Name" Binding="{Binding PartName}" />
-                <DataGridTextColumn Header="Part Number" Binding="{Binding PartNumber}" />
-                <DataGridTextColumn Header="Component" Binding="{Binding Component}" />
-                <DataGridTextColumn Header="Price" Binding="{Binding Price}" />
-                <DataGridTextColumn Header="Qty" Binding="{Binding Qty}" />
-                <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier}" />
-            </DataGrid.Columns>
-        </DataGrid>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Delete Selected" Name="DeleteSelectedButton" />
-            <Button Content="Import from Assembly" Name="ImportFromAssemblyButton" />
-            <Button Content="Match & Fill Info" Name="MatchFillInfoButton" />
-            <Button Content="Export BOM" Name="ExportBOMButton" />
-            <Button Content="Save Changes" Name="SaveChangesButton" />
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="320"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Parts List -->
+        <StackPanel Grid.Column="0" Margin="15" Orientation="Vertical">
+            <TextBlock Text="Parts Database - Click cells to edit" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+            
+            <!-- DataGrid with Editable Columns -->
+            <DataGrid x:Name="PartsDataGrid" Height="350" Margin="0,0,0,10" 
+                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                      Background="White" BorderBrush="#CCCCCC" BorderThickness="1"
+                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#E0E0E0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Part Name" Binding="{Binding PartName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="130" IsReadOnly="False"/>
+                    <DataGridTextColumn Header="Part Number" Binding="{Binding PartNumber, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="110" IsReadOnly="False"/>
+                    <DataGridTextColumn Header="Component" Binding="{Binding ComponentName, Mode=OneWay}" Width="120" IsReadOnly="True" Foreground="#0066CC"/>
+                    <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='${0:F2}'}" Width="80" IsReadOnly="False"/>
+                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="50" IsReadOnly="False"/>
+                    <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="*" IsReadOnly="False"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10" TextBlock.FontWeight="Bold">
+                <Button Content="Delete Selected" Click="DeletePart_Click" Background="#FF6B6B" Foreground="White" Padding="10,8" Margin="0,0,5,0" FontWeight="Bold"/>
+                <Button Content="Import from Assembly" Click="ImportFromAssembly_Click" Background="#2196F3" Foreground="White" Padding="10,8" Margin="0,0,5,0" FontWeight="Bold"/>
+                <Button Content="Match and Fill Info" Click="MatchAndFill_Click" Background="#FF9800" Foreground="White" Padding="10,8" Margin="0,0,5,0" FontWeight="Bold"/>
+                <Button Content="Export BOM" Click="ExportBOM_Click" Background="#4CAF50" Foreground="White" Padding="10,8" Margin="0,0,5,0" FontWeight="Bold"/>
+                <Button Content="Save Changes" Click="SaveChanges_Click" Background="#009688" Foreground="White" Padding="10,8" FontWeight="Bold"/>
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" Text="Ready" Foreground="#666666" TextWrapping="Wrap" FontSize="11"/>
         </StackPanel>
+
+        <!-- Add/Edit Part Form -->
+        <GroupBox Grid.Column="1" Header="Add/Edit Part" Margin="0,15,15,15" Padding="15" Background="White">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="Part Name:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="PartNameInput" Margin="0,0,0,12" Height="32" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                    <TextBlock Text="Part Number:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="PartNumberInput" Margin="0,0,0,12" Height="32" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                    <TextBlock Text="Component:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="ComponentInput" Margin="0,0,0,12" Height="32" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                    <TextBlock Text="Unit Price:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="UnitPriceInput" Margin="0,0,0,12" Height="32" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                    <TextBlock Text="Quantity:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="QuantityInput" Text="1" Margin="0,0,0,12" Height="32" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                    <TextBlock Text="Unit:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="UnitInput" Text="pcs" Margin="0,0,0,12" Height="32" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                    <TextBlock Text="Supplier:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="SupplierInput" Margin="0,0,0,12" Height="32" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                    <TextBlock Text="Description:" Margin="0,0,0,5" FontWeight="Bold" FontSize="12"/>
+                    <TextBox x:Name="DescriptionInput" Margin="0,0,0,12" Height="70" Padding="8" BorderBrush="#CCCCCC" BorderThickness="1" TextWrapping="Wrap" VerticalAlignment="Top"/>
+
+                    <Button Content="Add Part" Click="AddPart_Click" Background="#0066CC" Foreground="White" Height="40" FontWeight="Bold" Margin="0,10,0,0" Cursor="Hand"/>
+                </StackPanel>
+            </ScrollViewer>
+        </GroupBox>
     </Grid>
 </Window>

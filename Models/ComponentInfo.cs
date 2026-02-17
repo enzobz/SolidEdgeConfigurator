@@ -1,10 +1,10 @@
 namespace SolidEdgeConfigurator.Models
 {
-    public class ComponentConfig
+    public class ComponentInfo
     {
         public string ComponentName { get; set; }
-        public bool IsVisible { get; set; } = true;
-        public string ConfigurationName { get; set; }
+        public string PartNumber { get; set; }
         public string Description { get; set; }
+        public bool IsVisible { get; set; }
     }
 }
