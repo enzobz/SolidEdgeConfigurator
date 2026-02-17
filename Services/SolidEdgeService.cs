@@ -239,12 +239,14 @@ namespace SolidEdgeConfigurator.Services
                 }
 
                 // Apply component configurations if provided
-                if (settings?.ComponentConfigurations != null)
+                if (settings?.ComponentConfigurations != null && settings.ComponentConfigurations.Any())
                 {
                     foreach (var config in settings.ComponentConfigurations)
                     {
-                        // Apply configuration to components as needed
-                        // This is a placeholder for actual configuration logic
+                        if (!string.IsNullOrEmpty(config.ComponentName))
+                        {
+                            ToggleComponentVisibility(config.ComponentName, config.IsVisible);
+                        }
                     }
                 }
 

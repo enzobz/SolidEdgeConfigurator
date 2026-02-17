@@ -15,11 +15,17 @@ namespace SolidEdgeConfigurator
         private SolidEdgeService _solidEdgeService;
         private List<ComponentConfig> _currentComponents;
         private ComponentConfig _selectedComponent;
+        private bool _isUpdatingVisibility;
 
         public MainWindow()
         {
             InitializeComponent();
             InitializeService();
+            
+            // Register visibility checkbox handler once
+            VisibilityCheckBox.Checked += VisibilityCheckBox_Changed;
+            VisibilityCheckBox.Unchecked += VisibilityCheckBox_Changed;
+            
             Log("Application started");
         }
 
@@ -156,14 +162,13 @@ namespace SolidEdgeConfigurator
                 if (_selectedComponent != null)
                 {
                     SelectedComponentText.Text = _selectedComponent.ComponentName;
+                    
+                    // Update checkbox without triggering event
+                    _isUpdatingVisibility = true;
                     VisibilityCheckBox.IsChecked = _selectedComponent.IsVisible;
+                    _isUpdatingVisibility = false;
+                    
                     VisibilityCheckBox.IsEnabled = true;
-
-                    // Hook up checkbox event
-                    VisibilityCheckBox.Checked -= VisibilityCheckBox_Changed;
-                    VisibilityCheckBox.Unchecked -= VisibilityCheckBox_Changed;
-                    VisibilityCheckBox.Checked += VisibilityCheckBox_Changed;
-                    VisibilityCheckBox.Unchecked += VisibilityCheckBox_Changed;
 
                     Log($"Component selected: {_selectedComponent.ComponentName}");
                 }
@@ -181,6 +186,10 @@ namespace SolidEdgeConfigurator
         {
             try
             {
+                // Ignore if this is a programmatic update
+                if (_isUpdatingVisibility)
+                    return;
+
                 if (_selectedComponent == null)
                     return;
 
@@ -199,7 +208,9 @@ namespace SolidEdgeConfigurator
                 {
                     Log($"ERROR: Failed to update component visibility");
                     // Revert checkbox
+                    _isUpdatingVisibility = true;
                     VisibilityCheckBox.IsChecked = !isVisible;
+                    _isUpdatingVisibility = false;
                 }
             }
             catch (Exception ex)
@@ -245,7 +256,12 @@ namespace SolidEdgeConfigurator
                     ConfigurationName = "Generated Configuration",
                     TemplatePath = AssemblyPathTextBox.Text,
                     OutputPath = outputPath,
-                    ComponentConfigurations = _currentComponents.Select(c => new ComponentConfiguration()).ToList()
+                    ComponentConfigurations = _currentComponents.Select(c => new ComponentConfiguration
+                    {
+                        ComponentName = c.ComponentName,
+                        IsVisible = c.IsVisible,
+                        ConfigurationOption = c.ConfigurationName
+                    }).ToList()
                 };
 
                 // Generate the assembly
