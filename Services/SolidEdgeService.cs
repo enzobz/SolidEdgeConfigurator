@@ -21,9 +21,14 @@ namespace SolidEdgeConfigurator.Services
         public SolidEdgeService()
         {
             _components = new List<ComponentConfig>();
-            Log.Logger = new LoggerConfiguration()
-                .WriteTo.Console()
-                .CreateLogger();
+            
+            // Initialize logger if not already configured
+            if (Log.Logger == null || Log.Logger.GetType().Name == "SilentLogger")
+            {
+                Log.Logger = new LoggerConfiguration()
+                    .WriteTo.Console()
+                    .CreateLogger();
+            }
         }
 
         /// <summary>
@@ -88,7 +93,11 @@ namespace SolidEdgeConfigurator.Services
                     {
                         _assemblyDocument.Close(false);
                     }
-                    catch { }
+                    catch (Exception closeEx)
+                    {
+                        // Document may already be closed or in an invalid state
+                        Log.Debug(closeEx, "Exception while closing previous document");
+                    }
                 }
 
                 // Open the assembly document
@@ -305,8 +314,10 @@ namespace SolidEdgeConfigurator.Services
                 Type type = Type.GetTypeFromProgID("SolidEdge.Application");
                 return type != null;
             }
-            catch
+            catch (Exception ex)
             {
+                // COM registration or type resolution may fail if Solid Edge is not installed
+                Log.Debug(ex, "Solid Edge availability check failed");
                 return false;
             }
         }

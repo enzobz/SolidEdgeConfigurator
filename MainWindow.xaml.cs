@@ -298,7 +298,7 @@ namespace SolidEdgeConfigurator
         {
             try
             {
-                string timestamp = DateTime.Now.ToString("HH:mm:ss");
+                string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
                 string logEntry = $"[{timestamp}] {message}";
                 
                 // Add to UI log
@@ -325,7 +325,7 @@ namespace SolidEdgeConfigurator
             catch (Exception ex)
             {
                 // Fallback to console if UI logging fails
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {message}");
                 Console.WriteLine($"Logging error: {ex.Message}");
             }
         }
