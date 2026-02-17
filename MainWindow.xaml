@@ -1,0 +1,47 @@
+<Window x:Class="SolidEdgeConfigurator.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Solid Edge Configurator" Height="450" Width="800">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="250"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <!-- Left Panel for Configuration Controls -->
+        <StackPanel Grid.Column="0" Margin="10">
+            <TextBlock Text="Configuration Controls" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+
+            <GroupBox Header="Assembly Loading" Margin="0,0,0,10">
+                <!-- Assembly loading controls here, e.g. buttons, inputs -->
+                <StackPanel>
+                    <Button Content="Load Assembly" Margin="5"/>
+                    <Button Content="Unload Assembly" Margin="5"/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Component Configuration" Margin="0,0,0,10">
+                <!-- Component configuration controls here -->
+                <StackPanel>
+                    <Button Content="Configure Component" Margin="5"/>
+                    <TextBox PlaceholderText="Component Name" Margin="5"/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Generation" Margin="0,0,0,10">
+                <!-- Generation controls here -->
+                <StackPanel>
+                    <Button Content="Generate" Margin="5"/>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+
+        <!-- Right Panel for Execution Logging -->
+        <StackPanel Grid.Column="1" Margin="10">
+            <TextBlock Text="Execution Log" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+            <TextBox AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="True" Height="400"/>
+        </StackPanel>
+    </Grid>
+</Window>
