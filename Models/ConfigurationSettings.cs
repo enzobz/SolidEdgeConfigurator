@@ -1,1 +1,30 @@
-using System.Collections.Generic;\n\nnamespace SolidEdgeConfigurator.Models\n{\n    public class ConfigurationSettings\n    {\n        public string ConfigurationName { get; set; }\n        public string TemplatePath { get; set; }\n        public string OutputPath { get; set; }\n        public List<ComponentConfiguration> ComponentConfigurations { get; set; }\n    }\n\n    public class ComponentConfiguration\n    {\n        // Properties for the component configuration can be added here\n    }\n}
+using System.Collections.Generic;
+
+namespace SolidEdgeConfigurator.Models
+{
+    /// <summary>
+    /// Configuration settings for assembly generation
+    /// </summary>
+    public class ConfigurationSettings
+    {
+        public string ConfigurationName { get; set; }
+        public string TemplatePath { get; set; }
+        public string OutputPath { get; set; }
+        public List<ComponentConfiguration> ComponentConfigurations { get; set; }
+
+        public ConfigurationSettings()
+        {
+            ComponentConfigurations = new List<ComponentConfiguration>();
+        }
+    }
+
+    /// <summary>
+    /// Configuration for individual component
+    /// </summary>
+    public class ComponentConfiguration
+    {
+        public string ComponentName { get; set; }
+        public bool IsVisible { get; set; }
+        public string ConfigurationOption { get; set; }
+    }
+}
