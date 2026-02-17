@@ -23,7 +23,8 @@ namespace SolidEdgeConfigurator.Services
             _components = new List<ComponentConfig>();
             
             // Initialize logger if not already configured
-            if (Log.Logger == null || Log.Logger.GetType().Name == "SilentLogger")
+            // Note: Logger.None would be the proper check, but this works for our purposes
+            if (Log.Logger.GetType().FullName.Contains("Silent"))
             {
                 Log.Logger = new LoggerConfiguration()
                     .WriteTo.Console()
@@ -139,6 +140,7 @@ namespace SolidEdgeConfigurator.Services
 
                 Log.Information("Found {Count} components in assembly", count);
 
+                // Note: COM collections are 1-indexed, not 0-indexed
                 for (int i = 1; i <= count; i++)
                 {
                     try
@@ -192,6 +194,7 @@ namespace SolidEdgeConfigurator.Services
                 dynamic occurrences = _assemblyDocument.Occurrences;
                 int count = occurrences.Count;
 
+                // Note: COM collections are 1-indexed
                 for (int i = 1; i <= count; i++)
                 {
                     dynamic occurrence = occurrences.Item(i);

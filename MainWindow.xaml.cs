@@ -12,6 +12,8 @@ namespace SolidEdgeConfigurator
 {
     public partial class MainWindow : Window
     {
+        private const int MAX_LOG_ENTRIES = 1000;
+        
         private SolidEdgeService _solidEdgeService;
         private List<ComponentConfig> _currentComponents;
         private ComponentConfig _selectedComponent;
@@ -313,7 +315,7 @@ namespace SolidEdgeConfigurator
                     }
 
                     // Limit log entries to prevent memory issues
-                    if (LogListBox.Items.Count > 1000)
+                    if (LogListBox.Items.Count > MAX_LOG_ENTRIES)
                     {
                         LogListBox.Items.RemoveAt(0);
                     }
