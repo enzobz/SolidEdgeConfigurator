@@ -237,7 +237,7 @@ namespace SolidEdgeConfigurator
                 }
 
                 // Get output path
-                string outputPath = OutputPathTextBox.Text?.Trim();
+                string outputPath = OutputPathTextBox.Text.Trim();
                 
                 if (string.IsNullOrWhiteSpace(outputPath))
                 {

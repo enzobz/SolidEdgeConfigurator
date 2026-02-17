@@ -13,23 +13,22 @@ namespace SolidEdgeConfigurator.Services
     /// </summary>
     public class SolidEdgeService
     {
+        /// <summary>
+        /// Reference to the Solid Edge Application COM object
+        /// </summary>
         private dynamic _application;
+        
+        /// <summary>
+        /// Reference to the current AssemblyDocument COM object
+        /// </summary>
         private dynamic _assemblyDocument;
+        
         private string _currentAssemblyPath;
         private List<ComponentConfig> _components;
 
         public SolidEdgeService()
         {
             _components = new List<ComponentConfig>();
-            
-            // Initialize logger if not already configured
-            // Note: Logger.None would be the proper check, but this works for our purposes
-            if (Log.Logger.GetType().FullName.Contains("Silent"))
-            {
-                Log.Logger = new LoggerConfiguration()
-                    .WriteTo.Console()
-                    .CreateLogger();
-            }
         }
 
         /// <summary>
@@ -45,9 +44,10 @@ namespace SolidEdgeConfigurator.Services
                     _application = Marshal.GetActiveObject("SolidEdge.Application");
                     Log.Information("Connected to running Solid Edge instance");
                 }
-                catch
+                catch (COMException comEx)
                 {
-                    // If no instance running, create new one
+                    // No running instance found, create new one
+                    Log.Debug(comEx, "No running Solid Edge instance found, creating new one");
                     Type type = Type.GetTypeFromProgID("SolidEdge.Application");
                     if (type != null)
                     {
