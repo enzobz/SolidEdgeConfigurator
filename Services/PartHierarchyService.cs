@@ -8,8 +8,21 @@ using SolidEdgeConfigurator.Models;
 namespace SolidEdgeConfigurator.Services
 {
     /// <summary>
-    /// Service for scanning .asm files and extracting parts
+    /// LEGACY SERVICE - This service is deprecated and maintained only for backward compatibility.
+    /// 
+    /// Historical Purpose: Scanned .asm files and extracted parts based on physical folder structure.
+    /// 
+    /// Replacement: The new modular architecture uses database-driven BOM generation.
+    /// - Categories, Options, Modules, and Parts are defined in the database
+    /// - BOM generation is handled by Infrastructure/Data/BOMService
+    /// - No CAD file scanning is required for BOM generation
+    /// 
+    /// Migration Path:
+    /// 1. Use DataSeedingService to populate initial configuration data
+    /// 2. Use ModularConfigurationWindow for new configurations
+    /// 3. This service may still be used for initial part discovery if needed
     /// </summary>
+    [Obsolete("This service is deprecated. Use the modular architecture with BOMService instead.")]
     public class PartHierarchyService
     {
         private readonly string _rootPath;
