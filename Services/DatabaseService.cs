@@ -41,26 +41,8 @@ namespace SolidEdgeConfigurator.Services
                     // Create new modular architecture tables
                     CreateModularTables(connection);
 
-                    // Keep legacy Parts table for backward compatibility (will be migrated)
-                    string createPartsTable = @"
-                        CREATE TABLE IF NOT EXISTS Parts (
-                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            PartName TEXT NOT NULL,
-                            PartNumber TEXT,
-                            ComponentName TEXT,
-                            UnitPrice REAL NOT NULL,
-                            Supplier TEXT,
-                            Description TEXT,
-                            Quantity INTEGER DEFAULT 1,
-                            Unit TEXT DEFAULT 'pcs'
-                        )";
-
-                    CreateConfigurationTables();
-                    
-                    using (var command = new SQLiteCommand(createPartsTable, connection))
-                    {
-                        command.ExecuteNonQuery();
-                    }
+                    // Migrate legacy Parts table to new structure
+                    MigrateLegacyPartsTable(connection);
 
                     // Create BOM_Items junction table
                     string createBOMItemsTable = @"
@@ -84,6 +66,103 @@ namespace SolidEdgeConfigurator.Services
             {
                 Log.Error(ex, "✗ Database initialization error: {Message}", ex.Message);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Migrate legacy Parts table to include Code and IsActive fields
+        /// </summary>
+        private void MigrateLegacyPartsTable(SQLiteConnection connection)
+        {
+            try
+            {
+                // Check if Code column exists
+                var checkQuery = "PRAGMA table_info(Parts)";
+                bool hasCode = false;
+                bool hasIsActive = false;
+
+                using (var command = new SQLiteCommand(checkQuery, connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var columnName = reader["name"].ToString();
+                        if (columnName == "Code") hasCode = true;
+                        if (columnName == "IsActive") hasIsActive = true;
+                    }
+                }
+
+                // If Parts table doesn't have Code column, we need to recreate it
+                if (!hasCode || !hasIsActive)
+                {
+                    Log.Information("Migrating Parts table to new structure...");
+
+                    // Backup old data
+                    var backupQuery = "CREATE TABLE IF NOT EXISTS Parts_Backup AS SELECT * FROM Parts";
+                    ExecuteCommand(connection, backupQuery);
+
+                    // Drop old table
+                    ExecuteCommand(connection, "DROP TABLE IF EXISTS Parts");
+
+                    // Create new table structure
+                    const string createPartsTable = @"
+                        CREATE TABLE Parts (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            Code TEXT UNIQUE,
+                            Name TEXT NOT NULL,
+                            PartNumber TEXT,
+                            Description TEXT,
+                            UnitPrice REAL NOT NULL DEFAULT 0,
+                            Supplier TEXT,
+                            Unit TEXT DEFAULT 'pcs',
+                            ComponentName TEXT,
+                            IsActive INTEGER DEFAULT 1
+                        )";
+                    ExecuteCommand(connection, createPartsTable);
+
+                    // Restore data with generated codes
+                    var restoreQuery = @"
+                        INSERT INTO Parts (Id, Code, Name, PartNumber, Description, UnitPrice, Supplier, Unit, ComponentName, IsActive)
+                        SELECT Id, 'PART_' || CAST(Id AS TEXT), PartName, PartNumber, Description, UnitPrice, Supplier, Unit, ComponentName, 1
+                        FROM Parts_Backup";
+                    
+                    try
+                    {
+                        ExecuteCommand(connection, restoreQuery);
+                        Log.Information("✓ Parts table migrated successfully");
+                    }
+                    catch
+                    {
+                        Log.Information("No existing parts to migrate");
+                    }
+
+                    // Clean up backup
+                    ExecuteCommand(connection, "DROP TABLE IF EXISTS Parts_Backup");
+                }
+                else
+                {
+                    // Table already has new structure, just create if not exists
+                    const string createPartsTable = @"
+                        CREATE TABLE IF NOT EXISTS Parts (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            Code TEXT UNIQUE,
+                            Name TEXT NOT NULL,
+                            PartNumber TEXT,
+                            Description TEXT,
+                            UnitPrice REAL NOT NULL DEFAULT 0,
+                            Supplier TEXT,
+                            Unit TEXT DEFAULT 'pcs',
+                            ComponentName TEXT,
+                            IsActive INTEGER DEFAULT 1
+                        )";
+                    ExecuteCommand(connection, createPartsTable);
+                }
+
+                CreateConfigurationTables();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error migrating Parts table: {Message}", ex.Message);
             }
         }
 
