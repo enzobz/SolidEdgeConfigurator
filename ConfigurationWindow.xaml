@@ -1,0 +1,124 @@
+<Window x:Class="SolidEdgeConfigurator.ConfigurationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configuration Selection" Height="700" Width="1000"
+        Background="#F5F5F5"
+        WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="60"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Background="#2196F3">
+            <TextBlock Text="Switchboard Configuration" Foreground="White" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" Margin="20,0"/>
+        </Grid>
+
+        <!-- Content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="20">
+                <!-- Mechanical Configuration -->
+                <GroupBox Header="Mechanical Configuration" Margin="0,0,0,20" Background="White">
+                    <Grid Margin="15">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Left Column -->
+                        <!-- Columns Size -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Columns Size:" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="ColumnsSizeCombo" Grid.Row="0" Grid.Column="0" Margin="0,25,10,10" Height="35" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="700+400x600"/>
+                            <ComboBoxItem Content="700x600"/>
+                            <ComboBoxItem Content="700x1000"/>
+                        </ComboBox>
+
+                        <!-- IP Rating -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="IP Rating:" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="IPCombo" Grid.Row="1" Grid.Column="0" Margin="0,25,10,10" Height="35" VerticalContentAlignment="Center" SelectionChanged="IP_SelectionChanged">
+                            <ComboBoxItem Content="IP20"/>
+                            <ComboBoxItem Content="IP31"/>
+                            <ComboBoxItem Content="IP42"/>
+                            <ComboBoxItem Content="IP54"/>
+                        </ComboBox>
+
+                        <!-- Ventilated Roof -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ventilated Roof:" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="VentilatedRoofCombo" Grid.Row="2" Grid.Column="0" Margin="0,25,10,10" Height="35" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="Yes"/>
+                            <ComboBoxItem Content="No"/>
+                        </ComboBox>
+
+                        <!-- HBB (Horizontal Busbar) -->
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="HBB (Horizontal Busbar):" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="HBBCombo" Grid.Row="3" Grid.Column="0" Margin="0,25,10,10" Height="35" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="60x5"/>
+                            <ComboBoxItem Content="80x5 (1 bar per phase)"/>
+                            <ComboBoxItem Content="80x5 (2 bar per phase)"/>
+                            <ComboBoxItem Content="80x5 (3 bar per phase)"/>
+                            <ComboBoxItem Content="125x5"/>
+                        </ComboBox>
+
+                        <!-- Right Column -->
+                        <!-- VBB (Vertical Busbar) -->
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="VBB (Vertical Busbar):" FontWeight="Bold" Margin="10,0,0,5"/>
+                        <ComboBox x:Name="VBBCombo" Grid.Row="0" Grid.Column="1" Margin="10,25,0,10" Height="35" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="60x5"/>
+                            <ComboBoxItem Content="80x5 (1 bar per phase)"/>
+                            <ComboBoxItem Content="80x5 (2 bar per phase)"/>
+                            <ComboBoxItem Content="80x5 (3 bar per phase)"/>
+                        </ComboBox>
+
+                        <!-- Earth -->
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Earth:" FontWeight="Bold" Margin="10,0,0,5"/>
+                        <ComboBox x:Name="EarthCombo" Grid.Row="1" Grid.Column="1" Margin="10,25,0,10" Height="35" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="50Ka (50x5)"/>
+                            <ComboBoxItem Content="85Ka (50x5 2 bars)"/>
+                        </ComboBox>
+
+                        <!-- Neutral -->
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Neutral:" FontWeight="Bold" Margin="10,0,0,5"/>
+                        <ComboBox x:Name="NeutralCombo" Grid.Row="2" Grid.Column="1" Margin="10,25,0,10" Height="35" VerticalContentAlignment="Center">
+                            <ComboBoxItem Content="60x5"/>
+                            <ComboBoxItem Content="80x5 (1 bar per phase)"/>
+                            <ComboBoxItem Content="80x5 (2 bar per phase)"/>
+                            <ComboBoxItem Content="80x5 (3 bar per phase)"/>
+                            <ComboBoxItem Content="125x5"/>
+                        </ComboBox>
+
+                        <!-- Info -->
+                        <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Text="ℹ️ Ventilated Roof will be set based on IP rating" Foreground="#666" Margin="0,20,0,0" FontSize="11"/>
+                    </Grid>
+                </GroupBox>
+
+                <!-- Summary -->
+                <Border Background="#E3F2FD" CornerRadius="5" Margin="0,0,0,20">
+                    <StackPanel Margin="15">
+                        <TextBlock Text="Configuration Summary:" FontWeight="Bold" Margin="0,0,0,10"/>
+                        <TextBlock x:Name="SummaryText" Text="No configuration selected" Foreground="#666" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer Buttons -->
+        <Grid Grid.Row="2" Background="#FAFAFA">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="20,0">
+                <Button Content="Cancel" Click="Cancel_Click" Background="#CCCCCC" Foreground="Black" Padding="20,10" Margin="0,0,10,0" FontWeight="Bold" Width="100" Height="40"/>
+                <Button Content="Next >" Click="Next_Click" Background="#2196F3" Foreground="White" Padding="20,10" FontWeight="Bold" Width="100" Height="40"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

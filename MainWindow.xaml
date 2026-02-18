@@ -1,71 +1,249 @@
 <Window x:Class="SolidEdgeConfigurator.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Solid Edge Configurator" Height="650" Width="900"
-        Background="#F5F5F5">
+        Title="Solid Edge Configurator" Height="900" Width="1400"
+        Background="#F5F5F5" WindowState="Maximized">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="300"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60"/>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="50"/>
+        </Grid.RowDefinitions>
 
-        <!-- Left Panel: Configuration Controls -->
-        <StackPanel Grid.Column="0" Margin="15" Background="White" Orientation="Vertical">
-            <TextBlock Text="Configurator" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+        <!-- Top Header Bar -->
+        <Grid Grid.Row="0" Background="#2E7D32">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
+                <TextBlock Text="🔧 Solid Edge Configurator" Foreground="White" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock x:Name="HeaderStatusText" Text="Ready to configure" Foreground="#C8E6C9" FontSize="12" Margin="30,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0">
+                <Button Content="👁 Show Solid Edge" Click="ToggleSolidEdge_Click" Background="#1B5E20" Foreground="White" 
+                        Padding="15,10" Margin="0,0,10,0" FontWeight="Bold" x:Name="ToggleSolidEdgeButton"/>
+                <Button Content="📂 Manage Parts" Click="OpenPartsManagement_Click" Background="#1B5E20" Foreground="White" 
+                        Padding="15,10" FontWeight="Bold"/>
+            </StackPanel>
+        </Grid>
 
-            <!-- Manage Parts Button -->
-            <Button Content="Manage Parts Database" Click="OpenPartsManagement_Click" Height="50" Margin="0,0,0,15" Background="#9C27B0" Foreground="White" FontWeight="Bold" FontSize="13"/>
+        <!-- Tab Navigation -->
+        <Grid Grid.Row="1" Background="#4CAF50">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="TabSpecs" Content="Specs" Click="Tab_Click" Background="#4CAF50" Foreground="White" 
+                        Padding="20,0" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Tag="0"/>
+                <Button x:Name="TabLoad" Content="Load Assembly" Click="Tab_Click" Background="#66BB6A" Foreground="White" 
+                        Padding="20,0" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Tag="1"/>
+                <Button x:Name="TabConfig" Content="Configuration" Click="Tab_Click" Background="#66BB6A" Foreground="White" 
+                        Padding="20,0" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Tag="2"/>
+                <Button x:Name="TabGenerate" Content="Generate" Click="Tab_Click" Background="#66BB6A" Foreground="White" 
+                        Padding="20,0" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Tag="3"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,0" VerticalAlignment="Center">
+                <Button Content="Next >" Background="#1B5E20" Foreground="White" Padding="15,10" FontWeight="Bold"/>
+            </StackPanel>
+        </Grid>
 
-            <!-- Show/Hide Solid Edge Button -->
-            <Button x:Name="ToggleSolidEdgeButton" Content="Show Solid Edge" Click="ToggleSolidEdge_Click" Height="40" Margin="0,0,0,15" Background="#FF9800" Foreground="White" FontWeight="Bold"/>
-
-            <!-- Load Assembly Section -->
-            <GroupBox Header="1. Load Assembly" Margin="0,0,0,15" Padding="10">
-                <StackPanel>
-                    <TextBlock Text="Template File:" Margin="0,0,0,5"/>
-                    <TextBox x:Name="AssemblyPathTextBox" Height="30" Padding="5" IsReadOnly="True" Background="#F0F0F0"/>
-                    <Button Content="Browse Template..." Click="BrowseAssembliesButton_Click" Height="35" Margin="0,10,0,0" Background="#0066CC" Foreground="White" FontWeight="Bold"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- Configuration Section -->
-            <GroupBox Header="2. Configure Components" Margin="0,0,0,15" Padding="10">
-                <StackPanel>
-                    <TextBlock Text="Available Components:" Margin="0,0,0,5"/>
-                    <ListBox x:Name="ComponentListBox" Height="150" Margin="0,0,0,10" Background="White" BorderBrush="#CCCCCC" BorderThickness="1" SelectionChanged="ComponentSelectionChanged"/>
+        <!-- Content Area with ScrollViewer -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20">
+                
+                <!-- Tab 0: Specs -->
+                <StackPanel x:Name="SpecsTab" Margin="0,0,0,20">
+                    <TextBlock Text="Specifications" FontSize="16" FontWeight="Bold" Margin="0,0,0,20" Foreground="#333"/>
+                    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="20" Margin="0,0,0,15">
+                        <TextBlock Text="Assembly information and project details" FontSize="12" Foreground="#666"/>
+                    </Border>
                     
-                    <TextBlock Text="Selected Component:" Margin="0,10,0,5"/>
-                    <TextBox x:Name="SelectedComponentText" Height="25" Padding="5" IsReadOnly="True" Background="#F0F0F0"/>
-                    
-                    <CheckBox x:Name="VisibilityCheckBox" Content="Visible" Margin="0,10,0,0" Checked="VisibilityCheckBox_Changed" Unchecked="VisibilityCheckBox_Changed"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- Generate Assembly Section -->
-            <GroupBox Header="3. Generate Assembly" Margin="0,0,0,15" Padding="10">
-                <StackPanel>
-                    <TextBlock Text="Output File:" Margin="0,0,0,5"/>
-                    <Grid Margin="0,0,0,10">
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" x:Name="OutputPathTextBox" Height="30" Padding="5" IsReadOnly="False" Background="White"/>
-                        <Button Grid.Column="1" Content="Browse..." Click="BrowseOutput_Click" Height="30" Margin="5,0,0,0" Background="#666666" Foreground="White" Padding="10,0"/>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Left Column -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Project Name:" FontWeight="Bold" Margin="0,0,20,5"/>
+                        <TextBox Grid.Row="0" Grid.Column="0" Height="40" Padding="10" Margin="0,25,20,15" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Description:" FontWeight="Bold" Margin="0,0,20,5"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Height="80" Padding="10" Margin="0,25,20,15" BorderBrush="#CCCCCC" BorderThickness="1" TextWrapping="Wrap" VerticalAlignment="Top"/>
+
+                        <!-- Right Column -->
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Revision:" FontWeight="Bold" Margin="20,0,0,5"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Height="40" Padding="10" Margin="20,25,0,15" BorderBrush="#CCCCCC" BorderThickness="1"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Notes:" FontWeight="Bold" Margin="20,0,0,5"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Height="80" Padding="10" Margin="20,25,0,15" BorderBrush="#CCCCCC" BorderThickness="1" TextWrapping="Wrap" VerticalAlignment="Top"/>
                     </Grid>
-                    <Button Content="Generate Assembly" Click="GenerateAssembliesButton_Click" Height="40" Margin="0,10,0,0" Background="#00AA00" Foreground="White" FontWeight="Bold" FontSize="12"/>
                 </StackPanel>
-            </GroupBox>
 
-            <!-- Status -->
-            <TextBlock x:Name="StatusText" Text="Ready" Margin="0,10,0,0" Foreground="#666666" TextWrapping="Wrap" FontSize="11"/>
-        </StackPanel>
+                <!-- Tab 1: Load Assembly -->
+                <StackPanel x:Name="LoadTab" Visibility="Hidden" Margin="0,0,0,20">
+                    <TextBlock Text="Load Assembly File" FontSize="16" FontWeight="Bold" Margin="0,0,0,20" Foreground="#333"/>
+                    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="20" Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock Text="Select a folder containing .asm files to import parts" FontSize="12" Foreground="#666" Margin="0,0,0,20"/>
+                            
+                            <TextBlock Text="📁 Selected Folder:" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <TextBox x:Name="AssemblyPathTextBox" Height="40" Padding="10" Margin="0,0,0,20" 
+                                    BorderBrush="#CCCCCC" BorderThickness="1" IsReadOnly="True" Background="#FAFAFA"/>
+                            
+                            <Button Content="📂 Browse Folder..." Click="BrowseAssembliesButton_Click" 
+                                    Background="#2196F3" Foreground="White" Padding="15,12" FontWeight="Bold" Height="45"/>
+                            
+                            <TextBlock x:Name="LoadStatusText" Text="" FontSize="11" Margin="0,15,0,0" Foreground="#2E7D32" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
-        <!-- Right Panel: Log/Info -->
-        <StackPanel Grid.Column="1" Margin="15" Orientation="Vertical">
-            <TextBlock Text="Execution Log" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-            <ListBox x:Name="LogListBox" Background="White" BorderBrush="#CCCCCC" BorderThickness="1"/>
-        </StackPanel>
-        
+                <!-- Tab 2: Configuration -->
+                <StackPanel x:Name="ConfigTab" Visibility="Hidden" Margin="0,0,0,20">
+                    <TextBlock Text="System Configuration" FontSize="16" FontWeight="Bold" Margin="0,0,0,20" Foreground="#333"/>
+                    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="20" Margin="0,0,0,20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Row 0: Labels -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Columns Size:" FontWeight="Bold" Margin="0,0,10,8" Foreground="#333"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="IP Rating:" FontWeight="Bold" Margin="10,0,10,8" Foreground="#333"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Ventilated Roof:" FontWeight="Bold" Margin="10,0,0,8" Foreground="#333"/>
+
+                            <!-- Row 1: Dropdowns -->
+                            <ComboBox Grid.Row="1" Grid.Column="0" x:Name="ColumnsSizeCombo" Height="40" Padding="10" 
+                                     Margin="0,0,10,20" VerticalContentAlignment="Center" BorderBrush="#CCCCCC" BorderThickness="1"
+                                     SelectionChanged="OnConfigurationChanged">
+                                <ComboBoxItem Content="700+400x600"/>
+                                <ComboBoxItem Content="700x600"/>
+                                <ComboBoxItem Content="700x1000"/>
+                            </ComboBox>
+
+                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="IPCombo" Height="40" Padding="10" 
+                                     Margin="10,0,10,20" VerticalContentAlignment="Center" BorderBrush="#CCCCCC" BorderThickness="1" 
+                                     SelectionChanged="IP_SelectionChanged">
+                                <ComboBoxItem Content="IP20"/>
+                                <ComboBoxItem Content="IP31"/>
+                                <ComboBoxItem Content="IP42"/>
+                                <ComboBoxItem Content="IP54"/>
+                            </ComboBox>
+
+                            <ComboBox Grid.Row="1" Grid.Column="2" x:Name="VentilatedRoofCombo" Height="40" Padding="10" 
+                                     Margin="10,0,0,20" VerticalContentAlignment="Center" BorderBrush="#CCCCCC" BorderThickness="1"
+                                     SelectionChanged="OnConfigurationChanged">
+                                <ComboBoxItem Content="Yes"/>
+                                <ComboBoxItem Content="No"/>
+                            </ComboBox>
+
+                            <!-- Row 2: Labels -->
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="HBB (Horizontal Busbar):" FontWeight="Bold" Margin="0,0,10,8" Foreground="#333"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="VBB (Vertical Busbar):" FontWeight="Bold" Margin="10,0,10,8" Foreground="#333"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="Earth:" FontWeight="Bold" Margin="10,0,0,8" Foreground="#333"/>
+
+                            <!-- Row 3: Dropdowns -->
+                            <ComboBox Grid.Row="3" Grid.Column="0" x:Name="HBBCombo" Height="40" Padding="10" 
+                                     Margin="0,0,10,20" VerticalContentAlignment="Center" BorderBrush="#CCCCCC" BorderThickness="1"
+                                     SelectionChanged="OnConfigurationChanged">
+                                <ComboBoxItem Content="60x5"/>
+                                <ComboBoxItem Content="80x5 (1 bar/phase)"/>
+                                <ComboBoxItem Content="80x5 (2 bar/phase)"/>
+                                <ComboBoxItem Content="80x5 (3 bar/phase)"/>
+                                <ComboBoxItem Content="125x5"/>
+                            </ComboBox>
+
+                            <ComboBox Grid.Row="3" Grid.Column="1" x:Name="VBBCombo" Height="40" Padding="10" 
+                                     Margin="10,0,10,20" VerticalContentAlignment="Center" BorderBrush="#CCCCCC" BorderThickness="1"
+                                     SelectionChanged="OnConfigurationChanged">
+                                <ComboBoxItem Content="60x5"/>
+                                <ComboBoxItem Content="80x5 (1 bar/phase)"/>
+                                <ComboBoxItem Content="80x5 (2 bar/phase)"/>
+                                <ComboBoxItem Content="80x5 (3 bar/phase)"/>
+                            </ComboBox>
+
+                            <ComboBox Grid.Row="3" Grid.Column="2" x:Name="EarthCombo" Height="40" Padding="10" 
+                                     Margin="10,0,0,20" VerticalContentAlignment="Center" BorderBrush="#CCCCCC" BorderThickness="1"
+                                     SelectionChanged="OnConfigurationChanged">
+                                <ComboBoxItem Content="50Ka (50x5)"/>
+                                <ComboBoxItem Content="85Ka (50x5 2 bars)"/>
+                            </ComboBox>
+
+                            <!-- Row 4: Labels -->
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Neutral:" FontWeight="Bold" Margin="0,0,10,8" Foreground="#333"/>
+
+                            <!-- Row 5: Dropdowns -->
+                            <ComboBox Grid.Row="5" Grid.Column="0" x:Name="NeutralCombo" Height="40" Padding="10" 
+                                     Margin="0,0,10,0" VerticalContentAlignment="Center" BorderBrush="#CCCCCC" BorderThickness="1"
+                                     SelectionChanged="OnConfigurationChanged">
+                                <ComboBoxItem Content="60x5"/>
+                                <ComboBoxItem Content="80x5 (1 bar/phase)"/>
+                                <ComboBoxItem Content="80x5 (2 bar/phase)"/>
+                                <ComboBoxItem Content="80x5 (3 bar/phase)"/>
+                                <ComboBoxItem Content="125x5"/>
+                            </ComboBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- Configuration Summary -->
+                    <Border Background="#E8F5E9" BorderBrush="#4CAF50" BorderThickness="1" CornerRadius="5" Padding="15" Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock Text="📋 Configuration Summary" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <TextBlock x:Name="ConfigSummaryText" Text="No configuration selected" Foreground="#666" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Tab 3: Generate -->
+                <StackPanel x:Name="GenerateTab" Visibility="Hidden" Margin="0,0,0,20">
+                    <TextBlock Text="Generate Assembly" FontSize="16" FontWeight="Bold" Margin="0,0,0,20" Foreground="#333"/>
+                    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Padding="20" Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock Text="💾 Output File Location:" FontWeight="Bold" Margin="0,0,0,8"/>
+                            <Grid Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" x:Name="OutputPathTextBox" Height="40" Padding="10" 
+                                        BorderBrush="#CCCCCC" BorderThickness="1" IsReadOnly="True" Background="#FAFAFA" Margin="0,0,10,0"/>
+                                <Button Grid.Column="1" Content="Browse..." Click="BrowseOutput_Click" 
+                                       Background="#2196F3" Foreground="White" Padding="15,10" FontWeight="Bold" Width="100"/>
+                            </Grid>
+
+                            <Button Content="✓ Generate Assembly" Click="GenerateAssembliesButton_Click" 
+                                   Background="#009688" Foreground="White" Padding="15,15" FontWeight="Bold" Height="50" FontSize="14"/>
+                            
+                            <TextBlock x:Name="GenerateStatusText" Text="" FontSize="11" Margin="0,15,0,0" Foreground="#2E7D32" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Execution Log -->
+                <StackPanel x:Name="LogPanel" Visibility="Collapsed" Margin="0,0,0,20">
+                    <TextBlock Text="Execution Log" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5" Height="300">
+                        <ListBox x:Name="LogListBox" Background="White" BorderThickness="0" Padding="10"
+                                ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Status Bar at Bottom -->
+        <Border Grid.Row="3" Background="#E8F5E9" BorderBrush="#4CAF50" BorderThickness="1,1,0,0" Padding="15">
+            <TextBlock x:Name="StatusText" Text="✓ Ready" Foreground="#2E7D32" FontWeight="Bold" FontSize="11"/>
+        </Border>
     </Grid>
 </Window>

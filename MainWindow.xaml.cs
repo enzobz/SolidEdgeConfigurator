@@ -5,12 +5,15 @@ using System.Windows.Controls;
 using Microsoft.Win32;
 using SolidEdgeConfigurator.Models;
 using SolidEdgeConfigurator.Services;
+using Serilog;
 
 namespace SolidEdgeConfigurator
 {
     public partial class MainWindow : Window
     {
         private SolidEdgeService _seService;
+        private DatabaseService _dbService;
+        private PartHierarchyService _partHierarchyService;
         private List<string> _availableComponents;
         private Dictionary<string, ComponentConfig> _componentSettings;
 
@@ -21,6 +24,7 @@ namespace SolidEdgeConfigurator
                 InitializeComponent();
                 _availableComponents = new List<string>();
                 _componentSettings = new Dictionary<string, ComponentConfig>();
+                _dbService = new DatabaseService();
 
                 StatusText.Text = "Initializing Solid Edge...";
 
@@ -49,33 +53,62 @@ namespace SolidEdgeConfigurator
         {
             try
             {
-                if (_seService == null)
-                {
-                    MessageBox.Show("Solid Edge service is not available.", "Error", 
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
+                // Use OpenFileDialog to browse for a folder
                 var openFileDialog = new OpenFileDialog
                 {
-                    Filter = "Solid Edge Assembly (*.asm)|*.asm|All Files (*.*)|*.*",
-                    Title = "Select Template Assembly"
+                    Title = "Select folder containing .asm files",
+                    Filter = "All Files (*.*)|*.*",
+                    CheckFileExists = false,
+                    CheckPathExists = true
                 };
 
                 if (openFileDialog.ShowDialog() == true)
                 {
-                    AssemblyPathTextBox.Text = openFileDialog.FileName;
-                    _seService.OpenAssembly(openFileDialog.FileName);
-                    _availableComponents = _seService.GetComponentList();
-                    UpdateComponentList();
-                    StatusText.Text = $"Loaded: {System.IO.Path.GetFileName(openFileDialog.FileName)}";
-                    LogMessage($"Assembly loaded: {openFileDialog.FileName}", "Success");
+                    string selectedPath = System.IO.Path.GetDirectoryName(openFileDialog.FileName);
+                    
+                    // Initialize the hierarchy service
+                    _partHierarchyService = new PartHierarchyService(selectedPath, _seService, _dbService);
+                    
+                    LogMessage("Scanning .asm files...", "Info");
+                    StatusText.Text = "Scanning assembly files...";
+                    
+                    // Extract all parts from .asm files
+                    var extractedParts = _partHierarchyService.ExtractAllParts();
+                    
+                    var stats = _partHierarchyService.GetStatistics();
+                    
+                    Log.Information("Extracted {PartCount} parts from {AssemblyCount} assemblies", 
+                        stats.TotalParts, stats.UniqueAssemblies);
+                    
+                    StatusText.Text = $"✓ Found {stats.TotalParts} parts in {stats.UniqueAssemblies} assemblies";
+                    LogMessage($"Found {stats.TotalParts} parts in {stats.UniqueAssemblies} assemblies", "Success");
+                    
+                    // Ask to import
+                    var result = MessageBox.Show(
+                        $"Found {stats.TotalParts} parts in {stats.UniqueAssemblies} assemblies.\n\n" +
+                        "Would you like to import these to the Parts Database?",
+                        "Import Parts",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question
+                    );
+
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        int imported = _partHierarchyService.ImportPartsToDatabase();
+                        MessageBox.Show($"✓ Successfully imported {imported} parts to database!", 
+                            "Import Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                        StatusText.Text = $"✓ Imported {imported} parts to database";
+                        LogMessage($"Imported {imported} parts to database", "Success");
+                    }
+
+                    AssemblyPathTextBox.Text = selectedPath;
                 }
             }
             catch (Exception ex)
             {
-                LogMessage($"Error loading assembly: {ex.Message}", "Error");
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                LogMessage($"Error scanning assemblies: {ex.Message}", "Error");
+                Log.Error(ex, "Error in BrowseAssembliesButton_Click: {Message}", ex.Message);
             }
         }
 
@@ -90,7 +123,6 @@ namespace SolidEdgeConfigurator
                     DefaultExt = ".asm"
                 };
 
-                // Set default filename if available
                 if (!string.IsNullOrEmpty(AssemblyPathTextBox.Text))
                 {
                     var originalFilename = System.IO.Path.GetFileNameWithoutExtension(AssemblyPathTextBox.Text);
@@ -108,46 +140,6 @@ namespace SolidEdgeConfigurator
             {
                 LogMessage($"Error browsing output: {ex.Message}", "Error");
                 MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void UpdateComponentList()
-        {
-            ComponentListBox.Items.Clear();
-            foreach (var component in _availableComponents)
-            {
-                ComponentListBox.Items.Add(component);
-                if (!_componentSettings.ContainsKey(component))
-                {
-                    _componentSettings[component] = new ComponentConfig
-                    {
-                        ComponentName = component,
-                        IsVisible = true
-                    };
-                }
-            }
-            LogMessage($"Found {_availableComponents.Count} components", "Info");
-        }
-
-        private void ComponentSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ComponentListBox.SelectedItem is string selectedComponent)
-            {
-                SelectedComponentText.Text = selectedComponent;
-                if (_componentSettings.ContainsKey(selectedComponent))
-                {
-                    VisibilityCheckBox.IsChecked = _componentSettings[selectedComponent].IsVisible;
-                }
-            }
-        }
-
-        private void VisibilityCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            if (ComponentListBox.SelectedItem is string selectedComponent && VisibilityCheckBox.IsChecked.HasValue)
-            {
-                _componentSettings[selectedComponent].IsVisible = VisibilityCheckBox.IsChecked.Value;
-                string visibility = VisibilityCheckBox.IsChecked.Value ? "VISIBLE" : "HIDDEN";
-                LogMessage($"Component '{selectedComponent}' set to {visibility}", "Info");
             }
         }
 
@@ -216,7 +208,6 @@ namespace SolidEdgeConfigurator
             string logEntry = $"[{timestamp}] [{level}] {message}";
             LogListBox.Items.Insert(0, logEntry);
 
-            // Keep log size manageable
             while (LogListBox.Items.Count > 100)
             {
                 LogListBox.Items.RemoveAt(LogListBox.Items.Count - 1);
@@ -226,6 +217,7 @@ namespace SolidEdgeConfigurator
         private void Window_Closed(object sender, EventArgs e)
         {
             _seService?.Dispose();
+            _dbService?.Dispose();
         }
 
         private void OpenPartsManagement_Click(object sender, RoutedEventArgs e)
@@ -272,6 +264,123 @@ namespace SolidEdgeConfigurator
                     ? "Hide Solid Edge" 
                     : "Show Solid Edge";
             }
+        }
+
+        private void OpenConfigurationButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var configWindow = new ConfigurationWindow();
+                if (configWindow.ShowDialog() == true)
+                {
+                    var config = configWindow.SelectedConfiguration;
+                    MessageBox.Show($"Selected Configuration:\n{config.ConfigName}", "Configuration", 
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    
+                    LogMessage($"Configuration selected: {config.ConfigName}", "Success");
+                    
+                    // Get parts for this configuration
+                    var parts = _dbService.GetPartsByConfiguration(config.ConfigName);
+                    StatusText.Text = $"Configuration: {config.ConfigName} ({parts.Count} parts)";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(ex, "Error opening configuration window");
+            }
+        }
+
+        private int _currentTab = 0;
+
+        private void Tab_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            int tabIndex = int.Parse(button.Tag.ToString());
+            
+            // Hide all tabs
+            SpecsTab.Visibility = Visibility.Hidden;
+            LoadTab.Visibility = Visibility.Hidden;
+            ConfigTab.Visibility = Visibility.Hidden;
+            GenerateTab.Visibility = Visibility.Hidden;
+            LogPanel.Visibility = Visibility.Collapsed;
+
+            // Reset tab button colors
+            TabSpecs.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(102, 187, 106));
+            TabLoad.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(102, 187, 106));
+            TabConfig.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(102, 187, 106));
+            TabGenerate.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(102, 187, 106));
+
+            // Show selected tab
+            switch (tabIndex)
+            {
+                case 0:
+                    SpecsTab.Visibility = Visibility.Visible;
+                    TabSpecs.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80));
+                    break;
+                case 1:
+                    LoadTab.Visibility = Visibility.Visible;
+                    TabLoad.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80));
+                    break;
+                case 2:
+                    ConfigTab.Visibility = Visibility.Visible;
+                    TabConfig.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80));
+                    UpdateConfigSummary();
+                    break;
+                case 3:
+                    GenerateTab.Visibility = Visibility.Visible;
+                    TabGenerate.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(76, 175, 80));
+                    break;
+            }
+
+            _currentTab = tabIndex;
+        }
+
+        private void UpdateConfigSummary()
+        {
+            try
+            {
+                string summary = $"Columns: {GetComboValue(ColumnsSizeCombo)}\n" +
+                                $"IP Rating: {GetComboValue(IPCombo)}\n" +
+                                $"Ventilated Roof: {GetComboValue(VentilatedRoofCombo)}\n" +
+                                $"HBB: {GetComboValue(HBBCombo)}\n" +
+                                $"VBB: {GetComboValue(VBBCombo)}\n" +
+                                $"Earth: {GetComboValue(EarthCombo)}\n" +
+                                $"Neutral: {GetComboValue(NeutralCombo)}";
+
+                ConfigSummaryText.Text = summary;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error updating config summary");
+            }
+        }
+
+        private string GetComboValue(ComboBox combo)
+        {
+            return (combo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Not selected";
+        }
+
+        private void IP_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            string ip = GetComboValue(IPCombo);
+            
+            if (ip == "IP54" || ip == "IP42")
+            {
+                VentilatedRoofCombo.SelectedIndex = 0;  // Yes
+                VentilatedRoofCombo.IsEnabled = false;
+            }
+            else
+            {
+                VentilatedRoofCombo.IsEnabled = true;
+            }
+
+            UpdateConfigSummary();
+        }
+        
+        private void OnConfigurationChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateConfigSummary();
         }
     }
 }
