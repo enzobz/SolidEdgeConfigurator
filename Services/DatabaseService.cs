@@ -1,30 +1,27 @@
 using System;
 using System.Collections.Generic;
+using System.Data.SQLite;
 using System.IO;
-using System.Linq;
-using Microsoft.Data.Sqlite;
-using SolidEdgeConfigurator.Models;
+using System.Text;
 using Serilog;
+using SolidEdgeConfigurator.Models;
 
 namespace SolidEdgeConfigurator.Services
 {
     public class DatabaseService : IDisposable
     {
-        private string _connectionString;
-        private const string DatabaseName = "SolidEdgeConfigurator.db";
+        private readonly string _databasePath;
+        private readonly string _connectionString;
 
         public DatabaseService()
         {
-            string dbPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "SolidEdgeConfigurator",
-                DatabaseName
-            );
-
-            // Ensure directory exists
-            Directory.CreateDirectory(Path.GetDirectoryName(dbPath));
-
-            _connectionString = $"Data Source={dbPath};";
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var appFolder = Path.Combine(appDataPath, "SolidEdgeConfigurator");
+            Directory.CreateDirectory(appFolder);
+            
+            _databasePath = Path.Combine(appFolder, "SolidEdgeConfigurator.db");
+            _connectionString = $"Data Source={_databasePath};Version=3;";
+            
             InitializeDatabase();
         }
 
@@ -35,11 +32,11 @@ namespace SolidEdgeConfigurator.Services
         {
             try
             {
-                using (var connection = new SqliteConnection(_connectionString))
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
                     connection.Open();
 
-                    // Create Parts table - REMOVE UNIQUE from PartNumber
+                    // Create Parts table
                     string createPartsTable = @"
                         CREATE TABLE IF NOT EXISTS Parts (
                             Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +50,7 @@ namespace SolidEdgeConfigurator.Services
                             Unit TEXT DEFAULT 'pcs'
                         )";
 
-                    using (var command = new SqliteCommand(createPartsTable, connection))
+                    using (var command = new SQLiteCommand(createPartsTable, connection))
                     {
                         command.ExecuteNonQuery();
                     }
@@ -68,12 +65,12 @@ namespace SolidEdgeConfigurator.Services
                             FOREIGN KEY(PartId) REFERENCES Parts(Id)
                         )";
 
-                    using (var command = new SqliteCommand(createBOMItemsTable, connection))
+                    using (var command = new SQLiteCommand(createBOMItemsTable, connection))
                     {
                         command.ExecuteNonQuery();
                     }
 
-                    Log.Information("✓ Database initialized");
+                    Log.Information("✓ Database initialized at: {DatabasePath}", _databasePath);
                 }
             }
             catch (Exception ex)
@@ -90,7 +87,7 @@ namespace SolidEdgeConfigurator.Services
         {
             try
             {
-                using (var connection = new SqliteConnection(_connectionString))
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
                     connection.Open();
 
@@ -98,7 +95,7 @@ namespace SolidEdgeConfigurator.Services
                         INSERT INTO Parts (PartName, PartNumber, ComponentName, UnitPrice, Supplier, Description, Quantity, Unit)
                         VALUES (@PartName, @PartNumber, @ComponentName, @UnitPrice, @Supplier, @Description, @Quantity, @Unit)";
 
-                    using (var command = new SqliteCommand(query, connection))
+                    using (var command = new SQLiteCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@PartName", part.PartName ?? "");
                         command.Parameters.AddWithValue("@PartNumber", part.PartNumber ?? "");
@@ -128,37 +125,41 @@ namespace SolidEdgeConfigurator.Services
         {
             try
             {
-                using (var connection = new SqliteConnection(_connectionString))
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
                     connection.Open();
-
-                    string query = @"
+                    
+                    const string query = @"
                         UPDATE Parts 
-                        SET PartName = @PartName, PartNumber = @PartNumber, ComponentName = @ComponentName,
-                            UnitPrice = @UnitPrice, Supplier = @Supplier, Description = @Description,
-                            Quantity = @Quantity, Unit = @Unit
+                        SET PartName = @PartName,
+                            PartNumber = @PartNumber,
+                            UnitPrice = @UnitPrice,
+                            Quantity = @Quantity,
+                            Unit = @Unit,
+                            Supplier = @Supplier,
+                            Description = @Description
                         WHERE Id = @Id";
 
-                    using (var command = new SqliteCommand(query, connection))
+                    using (var command = new SQLiteCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@Id", part.Id);
                         command.Parameters.AddWithValue("@PartName", part.PartName ?? "");
                         command.Parameters.AddWithValue("@PartNumber", part.PartNumber ?? "");
-                        command.Parameters.AddWithValue("@ComponentName", part.ComponentName ?? "");
                         command.Parameters.AddWithValue("@UnitPrice", part.UnitPrice);
-                        command.Parameters.AddWithValue("@Supplier", part.Supplier ?? "");
-                        command.Parameters.AddWithValue("@Description", part.Description ?? "");
                         command.Parameters.AddWithValue("@Quantity", part.Quantity);
                         command.Parameters.AddWithValue("@Unit", part.Unit ?? "pcs");
+                        command.Parameters.AddWithValue("@Supplier", part.Supplier ?? "");
+                        command.Parameters.AddWithValue("@Description", part.Description ?? "");
 
-                        command.ExecuteNonQuery();
-                        Log.Information("✓ Part '{PartName}' updated", part.PartName);
+                        int rowsAffected = command.ExecuteNonQuery();
+                        Log.Information("UpdatePart: Updated {PartName} - Rows affected: {RowsAffected}", 
+                            part.PartName, rowsAffected);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error updating part: {Message}", ex.Message);
+                Log.Error(ex, "Error updating part: {PartName}", part.PartName);
                 throw;
             }
         }
@@ -170,13 +171,13 @@ namespace SolidEdgeConfigurator.Services
         {
             try
             {
-                using (var connection = new SqliteConnection(_connectionString))
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
                     connection.Open();
 
                     string query = "DELETE FROM Parts WHERE Id = @Id";
 
-                    using (var command = new SqliteCommand(query, connection))
+                    using (var command = new SQLiteCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@Id", partId);
                         command.ExecuteNonQuery();
@@ -200,13 +201,13 @@ namespace SolidEdgeConfigurator.Services
 
             try
             {
-                using (var connection = new SqliteConnection(_connectionString))
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
                     connection.Open();
 
                     string query = "SELECT * FROM Parts ORDER BY PartName";
 
-                    using (var command = new SqliteCommand(query, connection))
+                    using (var command = new SQLiteCommand(query, connection))
                     {
                         using (var reader = command.ExecuteReader())
                         {
@@ -214,14 +215,14 @@ namespace SolidEdgeConfigurator.Services
                             {
                                 parts.Add(new Part
                                 {
-                                    Id = (int)reader["Id"],
+                                    Id = Convert.ToInt32(reader["Id"]),
                                     PartName = reader["PartName"].ToString(),
                                     PartNumber = reader["PartNumber"].ToString(),
                                     ComponentName = reader["ComponentName"].ToString(),
                                     UnitPrice = Convert.ToDouble(reader["UnitPrice"]),
                                     Supplier = reader["Supplier"].ToString(),
                                     Description = reader["Description"].ToString(),
-                                    Quantity = (int)reader["Quantity"],
+                                    Quantity = Convert.ToInt32(reader["Quantity"]),
                                     Unit = reader["Unit"].ToString()
                                 });
                             }
@@ -248,13 +249,13 @@ namespace SolidEdgeConfigurator.Services
 
             try
             {
-                using (var connection = new SqliteConnection(_connectionString))
+                using (var connection = new SQLiteConnection(_connectionString))
                 {
                     connection.Open();
 
                     string query = "SELECT * FROM Parts WHERE ComponentName = @ComponentName";
 
-                    using (var command = new SqliteCommand(query, connection))
+                    using (var command = new SQLiteCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@ComponentName", componentName);
 
@@ -264,14 +265,14 @@ namespace SolidEdgeConfigurator.Services
                             {
                                 parts.Add(new Part
                                 {
-                                    Id = (int)reader["Id"],
+                                    Id = Convert.ToInt32(reader["Id"]),
                                     PartName = reader["PartName"].ToString(),
                                     PartNumber = reader["PartNumber"].ToString(),
                                     ComponentName = reader["ComponentName"].ToString(),
                                     UnitPrice = Convert.ToDouble(reader["UnitPrice"]),
                                     Supplier = reader["Supplier"].ToString(),
                                     Description = reader["Description"].ToString(),
-                                    Quantity = (int)reader["Quantity"],
+                                    Quantity = Convert.ToInt32(reader["Quantity"]),
                                     Unit = reader["Unit"].ToString()
                                 });
                             }

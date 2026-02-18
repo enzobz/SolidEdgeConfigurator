@@ -404,23 +404,21 @@ namespace SolidEdgeConfigurator.Services
 
             GC.SuppressFinalize(this);
         }
-
+        
         /// <summary>
         /// Get all components with their details (for parts import)
         /// </summary>
-        public List<ComponentInfo> GetComponentDetails()
+        public List<ComponentDetail> GetComponentDetails()
         {
-            var components = new List<ComponentInfo>();
+            var components = new List<ComponentDetail>();
 
             try
             {
-                if (_assemblyDocument == null)
-                {
-                    Log.Warning("No assembly document loaded");
+                if (_assemblyDocument == null)  // ✅ Changed from _document
                     return components;
-                }
 
-                dynamic occurrences = _assemblyDocument.Occurrences;
+                // Get all occurrence objects (parts/components)
+                dynamic occurrences = _assemblyDocument.Occurrences;  // ✅ Changed from _document
 
                 for (int i = 1; i <= occurrences.Count; i++)
                 {
@@ -428,31 +426,47 @@ namespace SolidEdgeConfigurator.Services
                     {
                         dynamic occurrence = occurrences.Item(i);
                         
-                        var componentInfo = new ComponentInfo
+                        // Get the actual part document, not the assembly reference
+                        dynamic refDoc = occurrence.ReferencedDocument;
+                        string partName = refDoc.FullFileName;
+                        
+                        // Extract just the filename without path and extension
+                        string fileName = System.IO.Path.GetFileNameWithoutExtension(partName);
+                        
+                        var component = new ComponentDetail
                         {
-                            ComponentName = occurrence.Name,
-                            PartNumber = occurrence.Name,  // Use component name as part number
-                            Description = occurrence.Name,
-                            IsVisible = true
+                            ComponentName = fileName,
+                            PartNumber = ExtractPartNumber(fileName),
+                            Description = $"Component: {fileName}"
                         };
 
-                        components.Add(componentInfo);
-                        Log.Information("Component details: {ComponentName}", occurrence.Name);
+                        // Avoid duplicates
+                        if (!components.Any(c => c.ComponentName == component.ComponentName))
+                        {
+                            components.Add(component);
+                            Log.Information("Found component: {ComponentName}", component.ComponentName);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning(ex, "Error processing component {Index}", i);
+                        Log.Warning(ex, "Error processing occurrence {Index}", i);
                     }
                 }
-
-                Log.Information("Retrieved details for {Count} components", components.Count);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error getting component details: {Message}", ex.Message);
+                Log.Error(ex, "Error getting component details");
             }
 
             return components;
+        }
+
+        private string ExtractPartNumber(string filename)
+        {
+            // Extract part number from filename if it follows a pattern
+            // e.g., "ES00812_400x600_IP31" -> "ES00812"
+            var parts = filename.Split('_');
+            return parts.Length > 0 ? parts[0] : filename;
         }
     }
 }
