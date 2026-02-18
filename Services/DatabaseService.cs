@@ -13,6 +13,8 @@ namespace SolidEdgeConfigurator.Services
         private readonly string _databasePath;
         private readonly string _connectionString;
 
+        public string ConnectionString => _connectionString;
+
         public DatabaseService()
         {
             var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -36,7 +38,10 @@ namespace SolidEdgeConfigurator.Services
                 {
                     connection.Open();
 
-                    // Create Parts table
+                    // Create new modular architecture tables
+                    CreateModularTables(connection);
+
+                    // Keep legacy Parts table for backward compatibility (will be migrated)
                     string createPartsTable = @"
                         CREATE TABLE IF NOT EXISTS Parts (
                             Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,6 +84,93 @@ namespace SolidEdgeConfigurator.Services
             {
                 Log.Error(ex, "✗ Database initialization error: {Message}", ex.Message);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Create new modular architecture tables
+        /// </summary>
+        private void CreateModularTables(SQLiteConnection connection)
+        {
+            try
+            {
+                // Categories table
+                const string createCategoriesTable = @"
+                    CREATE TABLE IF NOT EXISTS Categories (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Code TEXT NOT NULL UNIQUE,
+                        Name TEXT NOT NULL,
+                        Description TEXT,
+                        DisplayOrder INTEGER DEFAULT 0,
+                        IsActive INTEGER DEFAULT 1
+                    )";
+                ExecuteCommand(connection, createCategoriesTable);
+
+                // Options table
+                const string createOptionsTable = @"
+                    CREATE TABLE IF NOT EXISTS Options (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Code TEXT NOT NULL UNIQUE,
+                        Name TEXT NOT NULL,
+                        Description TEXT,
+                        CategoryId INTEGER NOT NULL,
+                        DisplayOrder INTEGER DEFAULT 0,
+                        IsActive INTEGER DEFAULT 1,
+                        IsDefault INTEGER DEFAULT 0,
+                        FOREIGN KEY(CategoryId) REFERENCES Categories(Id)
+                    )";
+                ExecuteCommand(connection, createOptionsTable);
+
+                // Modules table
+                const string createModulesTable = @"
+                    CREATE TABLE IF NOT EXISTS Modules (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Code TEXT NOT NULL UNIQUE,
+                        Name TEXT NOT NULL,
+                        Description TEXT,
+                        MasterAssemblyPath TEXT,
+                        IsActive INTEGER DEFAULT 1
+                    )";
+                ExecuteCommand(connection, createModulesTable);
+
+                // OptionModules junction table
+                const string createOptionModulesTable = @"
+                    CREATE TABLE IF NOT EXISTS OptionModules (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        OptionId INTEGER NOT NULL,
+                        ModuleId INTEGER NOT NULL,
+                        Quantity INTEGER DEFAULT 1,
+                        FOREIGN KEY(OptionId) REFERENCES Options(Id),
+                        FOREIGN KEY(ModuleId) REFERENCES Modules(Id)
+                    )";
+                ExecuteCommand(connection, createOptionModulesTable);
+
+                // ModuleParts junction table
+                const string createModulePartsTable = @"
+                    CREATE TABLE IF NOT EXISTS ModuleParts (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        ModuleId INTEGER NOT NULL,
+                        PartId INTEGER NOT NULL,
+                        Quantity INTEGER DEFAULT 1,
+                        FOREIGN KEY(ModuleId) REFERENCES Modules(Id),
+                        FOREIGN KEY(PartId) REFERENCES Parts(Id)
+                    )";
+                ExecuteCommand(connection, createModulePartsTable);
+
+                Log.Information("✓ Modular tables created");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error creating modular tables: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        private void ExecuteCommand(SQLiteConnection connection, string commandText)
+        {
+            using (var command = new SQLiteCommand(commandText, connection))
+            {
+                command.ExecuteNonQuery();
             }
         }
 
