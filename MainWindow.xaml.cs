@@ -382,5 +382,84 @@ namespace SolidEdgeConfigurator
         {
             UpdateConfigSummary();
         }
+
+        private void OpenModularConfig_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var modularConfigWindow = new Presentation.Windows.ModularConfigurationWindow();
+                modularConfigWindow.ShowDialog();
+                
+                if (modularConfigWindow.GeneratedBOM != null)
+                {
+                    var bom = modularConfigWindow.GeneratedBOM;
+                    LogMessage($"BOM generated: {bom.UniquePartCount} parts, ${bom.TotalCost:F2}", "Success");
+                    StatusText.Text = $"BOM: {bom.UniquePartCount} parts, ${bom.TotalCost:F2}";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening modular configuration: {ex.Message}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(ex, "Error opening modular configuration window");
+            }
+        }
+
+        private void SeedSampleData_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var result = MessageBox.Show(
+                    "This will populate the database with sample configuration data including:\n\n" +
+                    "• Categories (Columns, IP Rating, Roof, Busbar)\n" +
+                    "• Options for each category\n" +
+                    "• Modules\n" +
+                    "• Parts\n" +
+                    "• Relationships between them\n\n" +
+                    "This is useful for testing the new modular architecture.\n\n" +
+                    "Continue?",
+                    "Seed Sample Data",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    StatusText.Text = "Seeding sample data...";
+                    LogMessage("Seeding sample data...", "Info");
+
+                    // Initialize repositories
+                    var categoryRepo = new Infrastructure.Repositories.CategoryRepository(_dbService.ConnectionString);
+                    var optionRepo = new Infrastructure.Repositories.OptionRepository(_dbService.ConnectionString);
+                    var moduleRepo = new Infrastructure.Repositories.ModuleRepository(_dbService.ConnectionString);
+                    var partRepo = new Infrastructure.Repositories.PartRepository(_dbService.ConnectionString);
+                    var optionModuleRepo = new Infrastructure.Repositories.OptionModuleRepository(_dbService.ConnectionString);
+                    var modulePartRepo = new Infrastructure.Repositories.ModulePartRepository(_dbService.ConnectionString);
+
+                    // Create seeding service
+                    var seedingService = new Infrastructure.Data.DataSeedingService(
+                        categoryRepo, optionRepo, moduleRepo, partRepo, optionModuleRepo, modulePartRepo);
+
+                    // Seed data
+                    seedingService.SeedSampleData();
+
+                    StatusText.Text = "✓ Sample data seeded successfully!";
+                    LogMessage("Sample data seeded successfully!", "Success");
+                    
+                    MessageBox.Show(
+                        "Sample data has been seeded successfully!\n\n" +
+                        "You can now use the 'Modular Config' button to test the new configuration flow.",
+                        "Success",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error seeding data: {ex.Message}\n\n{ex.StackTrace}", "Error", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(ex, "Error seeding sample data");
+                StatusText.Text = "Error seeding data";
+            }
+        }
     }
 }

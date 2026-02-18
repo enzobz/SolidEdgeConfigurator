@@ -18,6 +18,10 @@
                 <TextBlock x:Name="HeaderStatusText" Text="Ready to configure" Foreground="#C8E6C9" FontSize="12" Margin="30,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0">
+                <Button Content="🌱 Seed Sample Data" Click="SeedSampleData_Click" Background="#FF9800" Foreground="White" 
+                        Padding="15,10" Margin="0,0,10,0" FontWeight="Bold"/>
+                <Button Content="⚙️ Modular Config" Click="OpenModularConfig_Click" Background="#9C27B0" Foreground="White" 
+                        Padding="15,10" Margin="0,0,10,0" FontWeight="Bold"/>
                 <Button Content="👁 Show Solid Edge" Click="ToggleSolidEdge_Click" Background="#1B5E20" Foreground="White" 
                         Padding="15,10" Margin="0,0,10,0" FontWeight="Bold" x:Name="ToggleSolidEdgeButton"/>
                 <Button Content="📂 Manage Parts" Click="OpenPartsManagement_Click" Background="#1B5E20" Foreground="White" 
