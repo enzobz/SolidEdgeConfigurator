@@ -50,6 +50,8 @@ namespace SolidEdgeConfigurator.Services
                             Unit TEXT DEFAULT 'pcs'
                         )";
 
+                    CreateConfigurationTables();
+                    
                     using (var command = new SQLiteCommand(createPartsTable, connection))
                     {
                         command.ExecuteNonQuery();
@@ -357,6 +359,206 @@ namespace SolidEdgeConfigurator.Services
         public void Dispose()
         {
             GC.SuppressFinalize(this);
+        }
+        
+        /// <summary>
+        /// Create Configuration Options table
+        /// </summary>
+        private void CreateConfigurationTables()
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    // Configuration Options table
+                    string createConfigTable = @"
+                        CREATE TABLE IF NOT EXISTS ConfigurationOptions (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            ConfigName TEXT NOT NULL,
+                            ColumnsSize TEXT,
+                            IP TEXT,
+                            VentilatedRoof TEXT,
+                            HBB TEXT,
+                            VBB TEXT,
+                            Earth TEXT,
+                            Neutral TEXT,
+                            ESFile TEXT,
+                            CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )";
+
+                    using (var command = new SQLiteCommand(createConfigTable, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+
+                    // Configuration Parts mapping table
+                    string createConfigPartsTable = @"
+                        CREATE TABLE IF NOT EXISTS ConfigurationParts (
+                            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            ConfigurationOptionId INTEGER,
+                            PartId INTEGER,
+                            PartNumber TEXT,
+                            PSMFileName TEXT,
+                            FOREIGN KEY(ConfigurationOptionId) REFERENCES ConfigurationOptions(Id),
+                            FOREIGN KEY(PartId) REFERENCES Parts(Id)
+                        )";
+
+                    using (var command = new SQLiteCommand(createConfigPartsTable, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+
+                    Log.Information("✓ Configuration tables created");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error creating configuration tables: {Message}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Add a configuration option
+        /// </summary>
+        public void AddConfigurationOption(ConfigurationOption config)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    const string query = @"
+                        INSERT INTO ConfigurationOptions 
+                        (ConfigName, ColumnsSize, IP, VentilatedRoof, HBB, VBB, Earth, Neutral, ESFile)
+                        VALUES 
+                        (@ConfigName, @ColumnsSize, @IP, @VentilatedRoof, @HBB, @VBB, @Earth, @Neutral, @ESFile)";
+
+                    using (var command = new SQLiteCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@ConfigName", config.ConfigName ?? "");
+                        command.Parameters.AddWithValue("@ColumnsSize", config.ColumnsSize ?? "");
+                        command.Parameters.AddWithValue("@IP", config.IP ?? "");
+                        command.Parameters.AddWithValue("@VentilatedRoof", config.VentilatedRoof ?? "");
+                        command.Parameters.AddWithValue("@HBB", config.HBB ?? "");
+                        command.Parameters.AddWithValue("@VBB", config.VBB ?? "");
+                        command.Parameters.AddWithValue("@Earth", config.Earth ?? "");
+                        command.Parameters.AddWithValue("@Neutral", config.Neutral ?? "");
+                        command.Parameters.AddWithValue("@ESFile", config.ESFile ?? "");
+
+                        command.ExecuteNonQuery();
+                        Log.Information("✓ Configuration option added: {ConfigName}", config.ConfigName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error adding configuration: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get parts for a specific configuration
+        /// </summary>
+        public List<Part> GetPartsByConfiguration(string configName)
+        {
+            var parts = new List<Part>();
+
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    const string query = @"
+                        SELECT DISTINCT p.* 
+                        FROM Parts p
+                        INNER JOIN ConfigurationParts cp ON p.Id = cp.PartId
+                        INNER JOIN ConfigurationOptions co ON cp.ConfigurationOptionId = co.Id
+                        WHERE co.ConfigName = @ConfigName";
+
+                    using (var command = new SQLiteCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@ConfigName", configName);
+
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                parts.Add(new Part
+                                {
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    PartName = reader["PartName"].ToString(),
+                                    PartNumber = reader["PartNumber"].ToString(),
+                                    ComponentName = reader["ComponentName"].ToString(),
+                                    UnitPrice = Convert.ToDouble(reader["UnitPrice"]),
+                                    Supplier = reader["Supplier"].ToString(),
+                                    Description = reader["Description"].ToString(),
+                                    Quantity = Convert.ToInt32(reader["Quantity"]),
+                                    Unit = reader["Unit"].ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error getting parts by configuration: {Message}", ex.Message);
+            }
+
+            return parts;
+        }
+
+        /// <summary>
+        /// Get all configuration options
+        /// </summary>
+        public List<ConfigurationOption> GetAllConfigurationOptions()
+        {
+            var configs = new List<ConfigurationOption>();
+
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    const string query = "SELECT * FROM ConfigurationOptions ORDER BY ConfigName";
+
+                    using (var command = new SQLiteCommand(query, connection))
+                    {
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                configs.Add(new ConfigurationOption
+                                {
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    ConfigName = reader["ConfigName"].ToString(),
+                                    ColumnsSize = reader["ColumnsSize"].ToString(),
+                                    IP = reader["IP"].ToString(),
+                                    VentilatedRoof = reader["VentilatedRoof"].ToString(),
+                                    HBB = reader["HBB"].ToString(),
+                                    VBB = reader["VBB"].ToString(),
+                                    Earth = reader["Earth"].ToString(),
+                                    Neutral = reader["Neutral"].ToString(),
+                                    ESFile = reader["ESFile"].ToString(),
+                                    CreatedDate = Convert.ToDateTime(reader["CreatedDate"])
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error getting configuration options: {Message}", ex.Message);
+            }
+
+            return configs;
         }
     }
 }

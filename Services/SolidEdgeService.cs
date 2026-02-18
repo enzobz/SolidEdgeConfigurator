@@ -24,7 +24,7 @@ namespace SolidEdgeConfigurator.Services
         private dynamic _assemblyDocument;
         
         private string _currentAssemblyPath;
-        private List<ComponentConfig> _components;
+        private List<ComponentConfig> _components; 
 
         public SolidEdgeService()
         {
@@ -414,11 +414,11 @@ namespace SolidEdgeConfigurator.Services
 
             try
             {
-                if (_assemblyDocument == null)  // ✅ Changed from _document
+                if (_assemblyDocument == null)
                     return components;
 
                 // Get all occurrence objects (parts/components)
-                dynamic occurrences = _assemblyDocument.Occurrences;  // ✅ Changed from _document
+                dynamic occurrences = _assemblyDocument.Occurrences;
 
                 for (int i = 1; i <= occurrences.Count; i++)
                 {
@@ -426,25 +426,26 @@ namespace SolidEdgeConfigurator.Services
                     {
                         dynamic occurrence = occurrences.Item(i);
                         
-                        // Get the actual part document, not the assembly reference
+                        // Get the referenced document (the actual .psm file)
                         dynamic refDoc = occurrence.ReferencedDocument;
-                        string partName = refDoc.FullFileName;
                         
-                        // Extract just the filename without path and extension
-                        string fileName = System.IO.Path.GetFileNameWithoutExtension(partName);
-                        
+                        // Get the full path and extract filename
+                        string fullPath = refDoc.FullFileName;
+                        string fileName = System.IO.Path.GetFileNameWithoutExtension(fullPath);
+                        string fileExtension = System.IO.Path.GetExtension(fullPath);
+
                         var component = new ComponentDetail
                         {
                             ComponentName = fileName,
-                            PartNumber = ExtractPartNumber(fileName),
-                            Description = $"Component: {fileName}"
+                            PartNumber = fileName,  // Use filename as part number
+                            Description = $"Part: {fileName} | Type: {fileExtension}"
                         };
 
                         // Avoid duplicates
-                        if (!components.Any(c => c.ComponentName == component.ComponentName))
+                        if (!components.Any(c => c.PartNumber == component.PartNumber))
                         {
                             components.Add(component);
-                            Log.Information("Found component: {ComponentName}", component.ComponentName);
+                            Log.Information("Found part: {PartNumber} ({FileName})", component.PartNumber, fileName);
                         }
                     }
                     catch (Exception ex)
@@ -460,7 +461,7 @@ namespace SolidEdgeConfigurator.Services
 
             return components;
         }
-
+        
         private string ExtractPartNumber(string filename)
         {
             // Extract part number from filename if it follows a pattern
